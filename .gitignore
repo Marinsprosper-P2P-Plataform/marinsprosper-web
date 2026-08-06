@@ -44,3 +44,6 @@ next-env.d.ts
 # obsidian (docs vault) — local UI/session state, not shared config
 docs/.obsidian/workspace.json
 docs/.obsidian/workspace-mobile.json
+
+# obsidian plugin secrets (API keys, TLS private keys) — never shared
+docs/.obsidian/plugins/*/data.json
