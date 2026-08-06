@@ -13,7 +13,6 @@ kanban-plugin: board
 
 ## Design System (Fase 1) — antes de qualquer tela final
 
-- [ ] Tokens de tema mobile-first no Tailwind (breakpoints, espaçamento, tipografia, cores) — base para tudo que vem depois #julia
 - [ ] Paleta e variantes de cor por estado de ordem (aberta, em andamento, concluída, cancelada, em disputa, expirada) — usada em badges/timeline em toda a plataforma #jose
 - [ ] Componentes base via shadcn/ui: Button, Input, Select, Textarea, Dialog, Tabs, Table, Badge, Avatar, Toast #julia
 - [ ] Componente de Badge de status da ordem (mapeando os 11+ estados da máquina de estados para rótulo + cor) #jose
@@ -111,6 +110,7 @@ kanban-plugin: board
 - [ ] Documentação inicial (PRD, arquitetura, modelo de dados, segurança, API, testes, incidentes)
 - [ ] Estrutura de pastas do frontend (rotas e diretórios de suporte)
 - [ ] Vault Obsidian com documentação e Kanban
+- [ ] Tokens de tema mobile-first no Tailwind (breakpoints, espaçamento, tipografia, cores) — `globals.css`, incluindo correção do token `--font-sans` que estava auto-referenciado
 
 
 %% kanban:settings
