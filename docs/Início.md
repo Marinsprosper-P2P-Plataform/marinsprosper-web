@@ -21,6 +21,7 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 7. [[07 - Plano de Resposta a Incidentes]]
 8. [[08 - Roadmap de Documentação Futura]]
 9. [[09 - Roadmap de Sprints]]
+10. [[10 - Design System]] — registro de implementação (frontend), atualizado conforme os cards do Kanban avançam
 
 ## Como usar este vault
 

@@ -83,6 +83,18 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-status-open: var(--status-open);
+  --color-status-open-foreground: var(--status-open-foreground);
+  --color-status-progress: var(--status-progress);
+  --color-status-progress-foreground: var(--status-progress-foreground);
+  --color-status-completed: var(--status-completed);
+  --color-status-completed-foreground: var(--status-completed-foreground);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-status-cancelled-foreground: var(--status-cancelled-foreground);
+  --color-status-dispute: var(--status-dispute);
+  --color-status-dispute-foreground: var(--status-dispute-foreground);
+  --color-status-expired: var(--status-expired);
+  --color-status-expired-foreground: var(--status-expired-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -125,6 +137,32 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /*
+   * Status semantics — maps the order state machine (Arquitetura Técnica,
+   * seção 4) into 6 visual categories, used by OrderStatusBadge and the
+   * order timeline. Never use --destructive for "em disputa": that token
+   * is reserved for actual errors/validation failures in forms.
+   *   aberta        -> DRAFT, OPEN
+   *   em andamento  -> RESERVED, ACCEPTED, AWAITING_*, *_MARKED_*,
+   *                    CASHIER_CONFIRMED_RECEIPT, CANCEL_REQUESTED
+   *   concluída     -> COMPLETED
+   *   cancelada     -> CANCEL_ACCEPTED, CANCEL_REJECTED, CLOSED
+   *   em disputa    -> DISPUTE_OPEN, DISPUTE_UNDER_REVIEW, DISPUTE_RESOLVED
+   *   expirada      -> EXPIRED, SUSPENDED
+   */
+  --status-open: oklch(0.6 0.19 255);
+  --status-open-foreground: oklch(0.985 0 0);
+  --status-progress: oklch(0.75 0.15 70);
+  --status-progress-foreground: oklch(0.2 0.02 70);
+  --status-completed: oklch(0.6 0.15 150);
+  --status-completed-foreground: oklch(0.985 0 0);
+  --status-cancelled: oklch(0.556 0 0);
+  --status-cancelled-foreground: oklch(0.985 0 0);
+  --status-dispute: oklch(0.58 0.22 25);
+  --status-dispute-foreground: oklch(0.985 0 0);
+  --status-expired: oklch(0.7 0.02 90);
+  --status-expired-foreground: oklch(0.2 0 0);
 }
 
 .dark {
@@ -159,6 +197,19 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --status-open: oklch(0.68 0.17 255);
+  --status-open-foreground: oklch(0.145 0 0);
+  --status-progress: oklch(0.78 0.14 70);
+  --status-progress-foreground: oklch(0.145 0 0);
+  --status-completed: oklch(0.68 0.15 150);
+  --status-completed-foreground: oklch(0.145 0 0);
+  --status-cancelled: oklch(0.708 0 0);
+  --status-cancelled-foreground: oklch(0.145 0 0);
+  --status-dispute: oklch(0.66 0.2 25);
+  --status-dispute-foreground: oklch(0.145 0 0);
+  --status-expired: oklch(0.5 0.02 90);
+  --status-expired-foreground: oklch(0.985 0 0);
 }
 
 @layer base {

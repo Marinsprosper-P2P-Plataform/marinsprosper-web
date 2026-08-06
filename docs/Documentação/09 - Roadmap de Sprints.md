@@ -12,7 +12,7 @@ Acompanhe o progresso em [[Kanban]].
 
 | Sprint | Entrega | Depende de |
 |---|---|---|
-| Sprint -1 (Fase 1) | Protótipo navegável em Next.js com dados fakes (Tailwind CSS + shadcn/ui) | — |
+| Sprint -1 (Fase 1) | Protótipo navegável em Next.js com dados fakes (Tailwind CSS + shadcn/ui) — design system em [[10 - Design System]] | — |
 | Sprint 0 | Setup de infra local (Docker Compose com Postgres e Redis) e repositórios | Sprint -1 aprovado |
 | Sprint 1 | Banco de dados (Prisma/TypeORM), autenticação JWT, motor do ledger de dupla entrada | Sprint 0 |
 | Sprint 2 | Interface CustodyAdapter, máquina de estados com lock pessimista, idempotência, trava anti-triangulação | Sprint 1 |

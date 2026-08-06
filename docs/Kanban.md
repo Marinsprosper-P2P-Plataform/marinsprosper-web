@@ -13,12 +13,6 @@ kanban-plugin: board
 
 ## Design System (Fase 1) — antes de qualquer tela final
 
-- [ ] Paleta e variantes de cor por estado de ordem (aberta, em andamento, concluída, cancelada, em disputa, expirada) — usada em badges/timeline em toda a plataforma #jose
-- [ ] Componentes base via shadcn/ui: Button, Input, Select, Textarea, Dialog, Tabs, Table, Badge, Avatar, Toast #julia
-- [ ] Componente de Badge de status da ordem (mapeando os 11+ estados da máquina de estados para rótulo + cor) #jose
-- [ ] Componente de Timeline/Stepper de progresso da ordem (visualiza em qual das etapas — reserva, transferência do cliente, confirmação do caixeiro, liberação — a ordem está) #julia
-- [ ] Layout responsivo mobile-first: navegação inferior (bottom nav) em mobile, sidebar em desktop #jose
-- [ ] Dark mode (se decidido pelo design) — usando os mesmos tokens #julia
 - [ ] Validar o design system com a equipe antes de aplicar nas telas finais #jose
 
 
@@ -111,6 +105,13 @@ kanban-plugin: board
 - [ ] Estrutura de pastas do frontend (rotas e diretórios de suporte)
 - [ ] Vault Obsidian com documentação e Kanban
 - [ ] Tokens de tema mobile-first no Tailwind (breakpoints, espaçamento, tipografia, cores) — `globals.css`, incluindo correção do token `--font-sans` que estava auto-referenciado
+- [ ] Paleta de cor por estado de ordem — 6 categorias (aberta/andamento/concluída/cancelada/disputa/expirada), tokens `--status-*` em `globals.css`
+- [ ] Componentes base shadcn/ui (Button, Input, Select, Textarea, Dialog, Tabs, Table, Badge, Avatar, Sonner)
+- [ ] Componente `OrderStatusBadge` — mapeia os 21 estados da máquina de estados pra rótulo + cor
+- [ ] Componente `OrderTimeline` — stepper do fluxo principal, com tratamento de ramos (cancelamento/disputa/expiração)
+- [ ] Layout responsivo mobile-first — `Sidebar` (desktop) + `BottomNav` (mobile), aplicado em `(dashboard)/layout.tsx`
+- [ ] Dark mode — `next-themes` + `ThemeProvider` + `ThemeToggle`
+- [ ] Documentação do design system no Obsidian — [[10 - Design System]]
 
 
 %% kanban:settings
