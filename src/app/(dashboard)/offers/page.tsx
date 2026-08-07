@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMockOrders } from "@/lib/mock/orders";
@@ -11,16 +10,16 @@ import { useMockSession } from "@/lib/mock/session";
 import { formatBRL } from "@/lib/mock/format";
 
 /** GET /orders (status=OPEN) — corresponde ao card "Listagem de
- * ofertas/ordens disponíveis". Visível a qualquer conta; só quem tem
- * status de caixeiro (`user.isCashier`) vê o botão de aceitar — e
- * mesmo essa conta não pode aceitar a própria ordem (sem autonegociação). */
+ * ofertas/ordens disponíveis". No protótipo, qualquer conta pode
+ * aceitar (ver src/lib/mock/session.tsx) — só não pode aceitar a
+ * própria ordem (sem autonegociação). */
 export default function OffersPage() {
   const { orders, acceptOrder } = useMockOrders();
   const { user } = useMockSession();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const openOrders = orders.filter((order) => order.status === "OPEN");
-  const availableLimit = user.cashierAvailableLimit ?? 0;
+  const availableLimit = user.cashierAvailableLimit;
 
   async function handleAccept(orderId: string, grossAmount: number) {
     if (acceptingId) return; // trava por clique duplo — idempotência na UI
@@ -45,23 +44,9 @@ export default function OffersPage() {
         </p>
       </div>
 
-      {user.isCashier && (
-        <p className="text-muted-foreground text-sm">
-          Limite disponível: <span className="text-foreground font-medium">{formatBRL(availableLimit)}</span>
-        </p>
-      )}
-
-      {!user.isCashier && (
-        <Alert>
-          <AlertDescription>
-            Sua conta ainda não tem status de caixeiro. Solicite em{" "}
-            <Link href="/cashier-apply" className="underline">
-              Virar caixeiro
-            </Link>{" "}
-            para poder aceitar ofertas.
-          </AlertDescription>
-        </Alert>
-      )}
+      <p className="text-muted-foreground text-sm">
+        Limite disponível: <span className="text-foreground font-medium">{formatBRL(availableLimit)}</span>
+      </p>
 
       {openOrders.length === 0 && (
         <p className="text-muted-foreground text-sm">Nenhuma oferta aberta no momento.</p>
@@ -100,7 +85,7 @@ export default function OffersPage() {
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/orders/${order.id}`}>Detalhes</Link>
                 </Button>
-                {user.isCashier && !isOwnOrder && (
+                {!isOwnOrder && (
                   <Button
                     size="sm"
                     disabled={acceptingId === order.id || exceedsLimit}

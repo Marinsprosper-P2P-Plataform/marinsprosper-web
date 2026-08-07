@@ -36,9 +36,7 @@ export default function OrdersPage() {
 
       {myOrders.length === 0 && (
         <p className="text-muted-foreground text-sm">
-          Você ainda não tem ordens.{" "}
-          {user.isCashier && "Veja as ofertas disponíveis ou "}
-          crie uma nova.
+          Você ainda não tem ordens. Veja as ofertas disponíveis ou crie uma nova.
         </p>
       )}
 

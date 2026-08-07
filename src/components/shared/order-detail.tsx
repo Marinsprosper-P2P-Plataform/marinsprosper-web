@@ -32,12 +32,10 @@ export function OrderDetail({ orderId }: { orderId: string }) {
   // ID na URL (ver Documentação de Segurança, ameaça de IDOR). Uma
   // conta pode ser cliente numa ordem e caixeiro em outra ao mesmo
   // tempo, então as duas checagens não são mais exclusivas entre si.
-  // Quem tem status de caixeiro também pode ver ordens ainda OPEN
-  // (de qualquer cliente) pra decidir se aceita.
+  // Qualquer conta pode ver ordens ainda OPEN (de qualquer cliente)
+  // pra decidir se aceita.
   const isParticipant =
-    order.clientId === user.id ||
-    order.cashierId === user.id ||
-    (user.isCashier && order.status === "OPEN");
+    order.clientId === user.id || order.cashierId === user.id || order.status === "OPEN";
 
   if (!isParticipant) {
     return (

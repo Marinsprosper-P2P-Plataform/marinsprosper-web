@@ -32,20 +32,16 @@ export function OrderActions({ order }: { order: Order }) {
   // exclusão explícita de `order.clientId === user.id` abaixo.
   const isClient = order.clientId === user.id;
   const isCashier = order.cashierId === user.id;
-  const canAcceptAsCashier = user.isCashier && order.clientId !== user.id;
+  const canAcceptAsCashier = order.clientId !== user.id;
 
   if (order.status === "OPEN") {
     return (
       <ActionCard title="Aceite">
         {canAcceptAsCashier ? (
           <AcceptControl order={order} />
-        ) : isClient ? (
-          <p className="text-muted-foreground text-sm">
-            Aguardando um caixeiro aceitar esta ordem.
-          </p>
         ) : (
           <p className="text-muted-foreground text-sm">
-            Sua conta ainda não tem status de caixeiro pra aceitar ofertas.
+            Aguardando um caixeiro aceitar esta ordem.
           </p>
         )}
       </ActionCard>
@@ -158,7 +154,7 @@ function AcceptControl({ order }: { order: Order }) {
   const { user } = useMockSession();
   const { acceptOrder } = useMockOrders();
   const [accepting, setAccepting] = useState(false);
-  const availableLimit = user.cashierAvailableLimit ?? 0;
+  const availableLimit = user.cashierAvailableLimit;
   const exceedsLimit = order.grossAmount > availableLimit;
 
   async function handleAccept() {

@@ -3,36 +3,36 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 /**
- * Rótulo de capacidade dentro de UMA ordem específica — não é mais a
+ * Rótulo de capacidade dentro de UMA ordem específica — não é uma
  * identidade fixa do usuário. A mesma conta pode ser "cliente" numa
  * ordem e "caixeiro" em outra, exatamente como nas plataformas de
- * referência (STM, Eldorado, AirTM): ser aprovado como caixeiro não
- * impede a pessoa de continuar comprando/vendendo como qualquer
- * cliente. Ver `authorRole` em `src/types/chat.ts` para o mesmo
- * princípio aplicado ao chat.
+ * referência (STM, Eldorado, AirTM). Ver `authorRole` em
+ * `src/types/chat.ts` para o mesmo princípio aplicado ao chat.
  */
 export type MockRole = "cliente" | "caixeiro";
 
 export interface MockUser {
   id: string;
   name: string;
-  /** Toda conta pode criar ordens como cliente — isso não depende de
-   * nenhuma flag. `isCashier` só indica se a conta TAMBÉM tem status
-   * de caixeiro aprovado (caução registrada), habilitando aceitar
-   * ofertas além de continuar podendo comprar/vender normalmente. */
-  isCashier: boolean;
-  /** Só relevante quando `isCashier` — limite disponível pra aceitar
-   * novas ordens (derivado da caução no backend real; fixo aqui). */
-  cashierAvailableLimit?: number;
+  /**
+   * Limite disponível pra aceitar ofertas como caixeiro. No
+   * protótipo (Sprint -1, dados fake), toda conta com acesso ao
+   * sistema já pode atuar como cliente OU caixeiro automaticamente —
+   * sem toggle, sem aprovação simulada.
+   *
+   * Isso é uma simplificação só do protótipo, não uma mudança na
+   * regra de negócio real: no modelo documentado (PRD, seção 4;
+   * Arquitetura Técnica), virar caixeiro de verdade exige caução
+   * registrada e aprovação — o fluxo `/cashier-apply` já construído
+   * representa exatamente isso, e passa a valer a partir do Sprint 2,
+   * quando existir backend de verdade checando caução real antes de
+   * calcular esse limite.
+   */
+  cashierAvailableLimit: number;
 }
 
-const ANA: MockUser = { id: "user-client-1", name: "Ana Cliente", isCashier: false };
-const BETO: MockUser = {
-  id: "user-cashier-1",
-  name: "Beto Caixeiro",
-  isCashier: true,
-  cashierAvailableLimit: 3000,
-};
+const ANA: MockUser = { id: "user-client-1", name: "Ana Ferreira", cashierAvailableLimit: 3000 };
+const BETO: MockUser = { id: "user-cashier-1", name: "Beto Lima", cashierAvailableLimit: 5000 };
 
 export const MOCK_ACCOUNTS: MockUser[] = [ANA, BETO];
 
@@ -48,7 +48,7 @@ const MockSessionContext = createContext<MockSessionContextValue | null>(null);
  * simulado aqui — um switcher (`AccountSwitcher`) permite alternar
  * entre duas contas fake pra revisar o protótipo sem precisar de dois
  * logins reais. Isso substitui inteiramente Sprint 4, quando a
- * identidade vem do JWT e o status de caixeiro do cadastro aprovado.
+ * identidade vem do JWT e o limite de caixeiro do cadastro aprovado.
  */
 export function MockSessionProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState(ANA.id);

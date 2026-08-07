@@ -108,8 +108,9 @@ kanban-plugin: board
 - [ ] Envio de texto e anexo (imagem com preview real via blob:, PDF com ícone) no chat
 - [ ] Indicação visual de anexo privado — nunca link público
 - [ ] Indicador de "digitando" (expira sozinho, pronto pro WebSocket do Sprint 4)
-- [ ] **Refatoração**: conta pode ser cliente e caixeiro ao mesmo tempo (`user.isCashier` em vez de `role` exclusivo) — `AccountSwitcher` substitui o antigo `RoleSwitcher`; papel agora é derivado por ordem, não fixo na conta; ver [[15 - Chat e Comprovantes]]
-- [ ] Prevenção de autonegociação — caixeiro não pode aceitar a própria ordem
+- [ ] **Refatoração (1ª rodada)**: conta pode ser cliente e caixeiro ao mesmo tempo — `AccountSwitcher` substitui o antigo `RoleSwitcher`; papel agora é derivado por ordem, não fixo na conta
+- [ ] **Refatoração (2ª rodada)**: removido todo gate — qualquer conta já pode ser cliente e caixeiro automaticamente, sem toggle nem aprovação simulada no protótipo (regra real de caução/aprovação continua documentada pro Sprint 2+); ver [[15 - Chat e Comprovantes]]
+- [ ] Prevenção de autonegociação — ninguém pode aceitar a própria ordem
 
 
 
