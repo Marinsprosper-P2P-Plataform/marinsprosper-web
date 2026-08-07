@@ -8,6 +8,28 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-07 (4) — Validação pós Administração & Mediação (4 primeiros cards)
+
+Escopo: `/admin`, `/admin/users`, `/admin/orders`, `/admin/audit-logs` (`src/lib/mock/admin-users.tsx`, `src/lib/mock/audit-log.tsx`).
+
+| Checagem | Resultado |
+|---|---|
+| `npm audit` | ✅ 0 vulnerabilidades |
+| `dangerouslySetInnerHTML` / `eval(` / `: any` / `as any` nos arquivos novos | ✅ Nenhuma ocorrência |
+| Documento/CPF/dados bancários/endereço de carteira exibidos em `/admin/users` ou `/admin/orders` | ✅ Nenhum — só nome, `@username`, e-mail, telefone, nível de KYC (número) e status; nenhum valor de documento real |
+| Log de auditoria com ação de editar/apagar na UI | ✅ Nenhuma — `logEvent` só adiciona, não existe dispatch de remoção em lugar nenhum |
+| IDOR — `/admin/orders` linkando pro detalhe de ordens de terceiros | ✅ De propósito, não linka: evitaria contornar a checagem de participante já auditada em `OrderDetail` sem uma identidade de admin de verdade pra justificar |
+| `npm run build` / `npm run lint` | ✅ Limpos, 25 rotas |
+| Teste manual: aprovar usuário → evento aparece no log de auditoria na mesma sessão | ✅ Confirmado, com timestamp real |
+
+### Achado real: as 4 telas não têm controle de acesso por papel
+
+Diferente da Carteira (rodada anterior, sem achado), este bucket expõe **PII de terceiros** (e-mail e telefone de 6 pessoas fake) e uma ação administrativa (aprovar cadastro) atrás de rotas sem nenhuma checagem de papel — qualquer conta que navegue até `/admin/*` tem acesso completo. Isso não é uma regressão desta passada (a rota `/admin` já existia na navegação principal desde o Design System, só como placeholder de texto), mas agora tem conteúdo de verdade atrás dela. Fica registrado como achado porque, diferente da simplificação "qualquer conta pode ser cliente ou caixeiro" (que é uma decisão de produto documentada), **não existe nenhuma decisão documentada de que qualquer conta pode ser admin** — é só ausência de RBAC, que é trabalho de backend (`user_roles`, Sprint 1-2). Detalhado em [[18 - Administração e Mediação]]. Não bloqueia o Sprint -1 (protótipo inteiro roda sem autenticação real ainda), mas **não pode chegar em produção sem controle de acesso por papel implementado**.
+
+### Conclusão
+
+Um achado de controle de acesso (esperado nesta fase do protótipo, registrado para não ser esquecido), nenhuma vulnerabilidade nova, nenhum segredo, nenhuma exposição de dado sensível de verdade (documento/bancário) nas telas novas.
+
 ## 2026-08-07 (3) — Validação pós Carteira & Caução
 
 Escopo: implementação completa do bucket "Carteira & Caução — visão do Caixeiro" (`src/lib/mock/collateral.tsx`, `src/lib/mock/cashier-availability.tsx`, `/wallet`, `/wallet/availability`, `components/ui/switch.tsx`).

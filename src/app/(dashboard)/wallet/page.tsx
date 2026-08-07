@@ -7,6 +7,7 @@ import { ArrowRightIcon, ClockIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DepositDialog } from "./deposit-dialog";
+import { useMockAuditLog } from "@/lib/mock/audit-log";
 import { EXPOSURE_FACTOR, computeCashierLimit, useMockCollateral } from "@/lib/mock/collateral";
 import { useMockSession } from "@/lib/mock/session";
 import { formatUSDT } from "@/lib/mock/format";
@@ -21,6 +22,7 @@ import { formatUSDT } from "@/lib/mock/format";
 export default function WalletPage() {
   const { user } = useMockSession();
   const { getAccount, initiateDeposit, confirmDeposit } = useMockCollateral();
+  const { logEvent } = useMockAuditLog();
   const account = getAccount(user.id);
   const scheduledRef = useRef(new Set<string>());
 
@@ -38,13 +40,20 @@ export default function WalletPage() {
       const delay = Math.max(0, new Date(deposit.confirmAt).getTime() - Date.now());
       const timer = setTimeout(() => {
         confirmDeposit(user.id, deposit.id);
+        logEvent({
+          category: "on-chain",
+          actor: "sistema",
+          action: "Depósito de caução confirmado",
+          target: `${user.name} (@${user.username})`,
+          details: `${formatUSDT(deposit.amount)} confirmados na rede TRC20 (simulado).`,
+        });
         toast.success(`Depósito de ${formatUSDT(deposit.amount)} confirmado on-chain`);
       }, delay);
       timers.push(timer);
     }
 
     return () => timers.forEach(clearTimeout);
-  }, [account, confirmDeposit, user.id]);
+  }, [account, confirmDeposit, logEvent, user.id, user.name, user.username]);
 
   if (!account) return null;
 

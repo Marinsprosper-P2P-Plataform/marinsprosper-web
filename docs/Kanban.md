@@ -35,10 +35,6 @@ kanban-plugin: board
 
 ## Administração & Mediação (Sprint -1, dados fake)
 
-- [ ] Painel administrativo — home (`(dashboard)/admin`) #julia
-- [ ] Listagem e busca de usuários (`(dashboard)/admin/users`) com ação de aprovar cadastro #jose
-- [ ] Visão consolidada de ordens para o admin (`(dashboard)/admin/orders`) #julia
-- [ ] Consulta de logs de auditoria (`(dashboard)/admin/audit-logs`) — incluindo eventos on-chain (depósito, liberação, reembolso), somente leitura, sem opção de editar/apagar na UI #jose
 - [ ] Gestão de blacklist (`(dashboard)/admin/blacklist`) — inclusão com campo obrigatório de evidências e motivo #julia
 - [ ] Listagem de disputas para o mediador (`(dashboard)/admin/disputes`) — restrita aos casos atribuídos #jose
 - [ ] Tela de detalhe/decisão de disputa (`(dashboard)/admin/disputes/[id]`) — evidências, chat restrito, decisão com campos separados de "recomendado por" e "aprovado por" #julia
@@ -120,6 +116,10 @@ kanban-plugin: board
 - [ ] Tela de carteira (`/wallet`) — sete saldos separados (`src/lib/mock/collateral.tsx`), nunca um saldo único; limite bruto/disponível derivado via `computeCashierLimit`, nunca calculado na tela; ver [[17 - Carteira e Caução]] #jose
 - [ ] Fluxo de depósito — endereço TRC20 fake + estado de espera "aguardando confirmação on-chain" (8s simulados) antes do saldo sair de `underReview` pra `available` #jose
 - [ ] Tela de disponibilidade do caixeiro (`/wallet/availability`) — online/offline (`Switch` novo em `components/ui`), dias, horário, métodos aceitos #julia
+- [ ] Painel administrativo — home (`/admin`) com contadores reais (usuários, ordens por categoria) e atalhos pras outras telas #julia
+- [ ] Listagem e busca de usuários (`/admin/users`, `src/lib/mock/admin-users.tsx`) com ação de aprovar cadastro — aprovação já registra evento no log de auditoria #jose
+- [ ] Visão consolidada de ordens (`/admin/orders`) — todas as ordens da plataforma, sem a checagem de participante de `/orders/[id]` #julia
+- [ ] Log de auditoria (`/admin/audit-logs`, `src/lib/mock/audit-log.tsx`) — somente leitura, categorias on-chain/admin, sem nenhuma ação de editar/apagar; ver [[18 - Administração e Mediação]]. **Achado de segurança registrado**: as 4 telas deste bloco ainda não têm controle de acesso por papel — qualquer conta navega até elas; aceitável só enquanto o protótipo inteiro roda sem autenticação real #jose
 
 
 
