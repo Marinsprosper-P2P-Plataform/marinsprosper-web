@@ -8,6 +8,21 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-07 (3) — Validação pós Carteira & Caução
+
+Escopo: implementação completa do bucket "Carteira & Caução — visão do Caixeiro" (`src/lib/mock/collateral.tsx`, `src/lib/mock/cashier-availability.tsx`, `/wallet`, `/wallet/availability`, `components/ui/switch.tsx`).
+
+| Checagem | Resultado |
+|---|---|
+| `npm audit` | ✅ 0 vulnerabilidades (nenhuma dependência nova — `Switch` usa o `radix-ui` já instalado) |
+| `dangerouslySetInnerHTML` / `innerHTML=` / `eval(` / `new Function(` / `: any` / `as any` nos arquivos novos | ✅ Nenhuma ocorrência |
+| Vazamento de dados entre contas na carteira/disponibilidade | ✅ `getAccount`/`getAvailability` sempre filtram por `user.id` da sessão atual; trocar de conta no `AccountSwitcher` mostra os saldos/config certos, testado manualmente |
+| Endereço de depósito | ✅ Fake, determinístico só por conveniência de teste — não é chave nem segredo real, alerta explícito na UI de que não deve receber fundos de verdade |
+| `npm run build` / `npm run lint` | ✅ Limpos, 25 rotas geradas |
+| Teste manual: depósito → espera → confirmação → limite atualizado | ✅ Ver [[17 - Carteira e Caução]] pro passo a passo |
+
+Nenhum achado de segurança nesta passada — ao contrário da rodada anterior (regressão de PII em `/offers`), este bucket não toca em nenhuma tela pública nem em dado de terceiro, só a visão da própria conta.
+
 ## 2026-08-07 (2) — Validação pós @username/OTP, Perfil/PIX e 2ª rodada de Ofertas & Ordens
 
 Escopo: commits `a9a9484`..`7606c70` — conclusão do bucket Autenticação & Onboarding (`@username`, país/cidade, verificação dupla por OTP), bucket Perfil & Configurações completo (identidade, chaves PIX), e a 2ª rodada de Ofertas & Ordens (abas, reputação, modal de regras + senha, countdown de SLA).

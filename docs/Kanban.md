@@ -32,12 +32,6 @@ kanban-plugin: board
 
 ## Carteira & Caução — visão do Caixeiro (Sprint -1, dados fake)
 
-- [ ] Tela de carteira (`(dashboard)/wallet`) — saldos separados: disponível, reservado, bloqueado, em análise, pendente de retirada, retirado (nunca um saldo único) #jose
-- [ ] Exibição do limite bruto e disponível do caixeiro (derivado da caução confirmada × fator de exposição) #julia
-- [ ] Fluxo de exibição do endereço/instrução de depósito de USDT no smart contract (dado vindo de `/cashier/collateral/deposit-address`) #jose
-- [ ] Tela de disponibilidade do caixeiro (`/cashier/availability`) — online/offline, horários, métodos aceitos #julia
-- [ ] Estado de espera "aguardando confirmação on-chain do depósito" antes do saldo refletir no limite #jose
-
 
 ## Administração & Mediação (Sprint -1, dados fake)
 
@@ -123,6 +117,9 @@ kanban-plugin: board
 - [ ] Reputação/estrelas da contraparte (`getUserReputation`, `ReputationStars`) reaproveitada em `/offers` e no detalhe da ordem #julia
 - [ ] Modal de regras de uso, caução/custódia e penalidades + reconfirmação de senha antes de criar a ordem (`orders/new/order-rules-dialog.tsx`) — só depois chama `createOrder` #jose
 - [ ] Countdown de 30 minutos entre aceite e pagamento (`PaymentCountdown`, `Order.paymentDeadline`, ação `EXPIRE` no reducer) — simulado no cliente, idempotente com o resto do fluxo; ver [[14 - Ofertas e Ordens]] #julia
+- [ ] Tela de carteira (`/wallet`) — sete saldos separados (`src/lib/mock/collateral.tsx`), nunca um saldo único; limite bruto/disponível derivado via `computeCashierLimit`, nunca calculado na tela; ver [[17 - Carteira e Caução]] #jose
+- [ ] Fluxo de depósito — endereço TRC20 fake + estado de espera "aguardando confirmação on-chain" (8s simulados) antes do saldo sair de `underReview` pra `available` #jose
+- [ ] Tela de disponibilidade do caixeiro (`/wallet/availability`) — online/offline (`Switch` novo em `components/ui`), dias, horário, métodos aceitos #julia
 
 
 

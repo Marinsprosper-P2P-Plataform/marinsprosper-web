@@ -28,6 +28,7 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 14. [[14 - Ofertas e Ordens]] — ofertas, criação de ordem, ciclo completo, cancelamento, disputa, avaliação
 15. [[15 - Chat e Comprovantes]] — chat por ordem, edição imutável, anexos privados, e a refatoração pro papel dual cliente+caixeiro
 16. [[16 - Perfil e Configurações]] — página de identidade (`@username`, país, cidade, reputação) e cadastro de chaves PIX com trava de titularidade
+17. [[17 - Carteira e Caução]] — visão do caixeiro: sete saldos separados, limite derivado, depósito com espera de confirmação on-chain, disponibilidade
 
 ## Como usar este vault
 
