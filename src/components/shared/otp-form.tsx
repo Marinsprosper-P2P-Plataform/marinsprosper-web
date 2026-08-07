@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface OtpFormProps {
-  schema: ZodType<{ code: string }>;
+  // Precisa dos dois type params (Output e Input) — só `ZodType<{ code:
+  // string }>` deixa Input como `unknown`, o que quebra a inferência do
+  // `zodResolver` contra `FieldValues` no `tsc` do build (não aparece no
+  // `next dev`, só no `next build`/typecheck completo).
+  schema: ZodType<{ code: string }, { code: string }>;
   onVerified: (code: string) => Promise<void> | void;
   buttonLabel?: string;
 }
