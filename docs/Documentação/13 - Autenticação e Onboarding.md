@@ -15,6 +15,8 @@ Telas do grupo `(auth)` com dados fake, construídas sobre o [[10 - Design Syste
 | `/login` | `(auth)/login/page.tsx` | `POST /auth/login` |
 | `/mfa` | `(auth)/mfa/page.tsx` | `POST /auth/mfa/verify` |
 | `/register` | `(auth)/register/page.tsx` | `POST /auth/register` |
+| `/verify-email` | `(auth)/verify-email/page.tsx` | `POST /auth/verify-email` |
+| `/verify-phone` | `(auth)/verify-phone/page.tsx` | `POST /auth/verify-phone` |
 | `/kyc` | `(auth)/kyc/page.tsx` | `POST /kyc/documents` |
 | `/kyc/status` | `(auth)/kyc/status/page.tsx` | `GET /kyc/status` |
 | `/cashier-apply` | `(auth)/cashier-apply/page.tsx` | `POST /cashier/apply` |
@@ -37,6 +39,14 @@ O card de login pedia "placeholder para MFA de caixeiro/admin". Como ainda não 
 ### KYC — preview de estados via query string
 
 `/kyc/status` sem backend só teria um estado possível (o que acabou de ser enviado = pendente). Pra dar pra Julia/Rene revisar os três estados visuais (pendente/aprovado/rejeitado) sem esperar o Sprint 4, a página aceita `?status=aprovado` ou `?status=rejeitado&motivo=...`. Documentando aqui pra não vir como surpresa depois — isso é especificamente uma muleta de prototipagem, não algo que deveria sobreviver à integração real.
+
+### Cadastro: `@username`, país/cidade e verificação dupla
+
+`/register` ganhou três coisas novas, todas cobrindo o bucket "Autenticação & Onboarding" do [[Kanban]]:
+
+- **`@username`** — campo com prefixo `@` fixo visualmente, validado por formato (minúsculas, números, `_`, 3-20 caracteres) via `usernameSchema` em `src/lib/validations/auth.ts`. Unicidade é checada à parte, num round-trip simulado (`checkUsernameAvailability`, `src/lib/mock/username.ts`, mesmo padrão de `quoteOrder`), disparado no `onBlur` do campo — mostra "Verificando disponibilidade…", depois "Disponível" ou "já está em uso". O submit é bloqueado se a última checagem não deu "disponível". Lista de usernames reservados (`RESERVED_USERNAMES`) inclui os das contas fake de `session.tsx`, só pra ter um caminho de erro pra testar. Imutável depois de criado — não existe tela de edição de username neste bucket (fica pra quando existir Perfil & Configurações).
+- **País e cidade** — país agora é `Select` (`COUNTRIES` em `validations/auth.ts`, os 4 mercados já citados no produto: Brasil, Paraguai, Argentina, Estados Unidos) e cidade é texto livre. Antes nenhum dos dois era pedido na tela, embora o modelo de dados já prevendo país (Parte 3).
+- **Verificação dupla por OTP** — depois do submit de `/register`, em vez de ir direto pro KYC/cashier-apply, o fluxo passa por `/verify-email` e depois `/verify-phone` (código de 6 dígitos cada, componente `OtpForm` reaproveitado entre as duas telas). E-mail e telefone digitados no cadastro trafegam via query string entre as etapas — mesma muleta de prototipagem do `/kyc/status`, sem sessão real ainda. Nenhuma das duas telas simula "código certo": como em `/mfa`, qualquer código no formato certo passa — validar de verdade é responsabilidade do backend (Sprint 4). Ao final de `/verify-phone`, o branch cliente/caixeiro que antes vivia em `/register` foi movido pra lá (decide entre `/kyc` e `/cashier-apply`).
 
 ### Sessão expirada — só o hook, ainda sem uso
 

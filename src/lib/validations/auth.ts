@@ -21,11 +21,54 @@ export const mfaSchema = z.object({
 });
 export type MfaInput = z.infer<typeof mfaSchema>;
 
+/** Mesma forma do `mfaSchema`, mas schemas separados porque cobrem
+ * endpoints diferentes (`/auth/verify-email`, `/auth/verify-phone`) —
+ * nenhuma checagem de "código certo" é simulada aqui: como em qualquer
+ * validação deste arquivo, o formato é tudo que a UI pode garantir, quem
+ * decide se o código está correto é sempre o backend. */
+export const emailOtpSchema = z.object({
+  code: z
+    .string()
+    .length(6, "O código tem 6 dígitos")
+    .regex(/^\d+$/, "Só números"),
+});
+export type EmailOtpInput = z.infer<typeof emailOtpSchema>;
+
+export const phoneOtpSchema = z.object({
+  code: z
+    .string()
+    .length(6, "O código tem 6 dígitos")
+    .regex(/^\d+$/, "Só números"),
+});
+export type PhoneOtpInput = z.infer<typeof phoneOtpSchema>;
+
+export const COUNTRIES = [
+  { id: "BR", label: "Brasil" },
+  { id: "PY", label: "Paraguai" },
+  { id: "AR", label: "Argentina" },
+  { id: "US", label: "Estados Unidos" },
+] as const;
+
+/** `@username`: minúsculas, números e underscore, 3 a 20 caracteres —
+ * regra de formato de UI só; unicidade real é checada à parte via
+ * `checkUsernameAvailability` (src/lib/mock/username.ts), o mesmo
+ * princípio de "frontend nunca decide sozinho" do resto do arquivo. */
+export const usernameSchema = z
+  .string()
+  .min(3, "Mínimo de 3 caracteres")
+  .max(20, "Máximo de 20 caracteres")
+  .regex(/^[a-z0-9_]+$/, "Só minúsculas, números e _");
+
 export const registerSchema = z
   .object({
     name: z.string().min(2, "Informe seu nome completo"),
+    username: usernameSchema,
     email: z.email("Informe um e-mail válido"),
     phone: z.string().min(8, "Informe um telefone válido"),
+    country: z.enum(COUNTRIES.map((country) => country.id) as [string, ...string[]], {
+      error: "Selecione um país",
+    }),
+    city: z.string().min(2, "Informe sua cidade"),
     role: z.enum(["cliente", "caixeiro"]),
     password: z.string().min(8, "Mínimo de 8 caracteres"),
     confirmPassword: z.string(),

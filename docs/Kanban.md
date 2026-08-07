@@ -21,7 +21,19 @@ kanban-plugin: board
 ## Autenticação & Onboarding (Sprint -1, dados fake)
 
 
+## Perfil & Configurações (Sprint -1, dados fake)
+
+- [ ] Página de Perfil & Configurações (`(dashboard)/profile`) — exibe `@username`, país, cidade e reputação/avaliações da conta #jose
+- [ ] Cadastro e listagem de chaves PIX (tipo de chave, chave, instituição, descrição) — validação de UI da trava de titularidade (CPF/CNPJ da chave igual ao do KYC fake); aplicação real da trava fica pro backend (Sprint 2, já especificada em [[04 - Documentação de Segurança]]) #julia
+
+
 ## Ofertas & Ordens (Sprint -1, dados fake)
+
+- [ ] Filtro/abas "Comprar" e "Vender" em `/offers` — hoje a listagem mistura os dois tipos de ordem sem separação #jose
+- [ ] Exibição de reputação/estrelas da contraparte (histórico de ordens concluídas) em `/offers` e no detalhe da ordem #julia
+- [ ] Modal de regras de uso, caução/custódia e penalidades, exibido antes de confirmar a criação da ordem em `/orders/new` #jose
+- [ ] Reconfirmação de senha de acesso ao autorizar a abertura da ordem em `/orders/new` #julia
+- [ ] Countdown de 30 minutos no detalhe da ordem, entre aceite e pagamento — simulado no cliente (`setTimeout`, mesmo padrão de `pricing.ts`); cancelamento automático de verdade por timeout é Sprint 3 (filas BullMQ, já previsto em [[09 - Roadmap de Sprints]]) #jose
 
 
 ## Chat & Comprovantes (Sprint -1, dados fake)
@@ -111,6 +123,9 @@ kanban-plugin: board
 - [ ] **Refatoração (1ª rodada)**: conta pode ser cliente e caixeiro ao mesmo tempo — `AccountSwitcher` substitui o antigo `RoleSwitcher`; papel agora é derivado por ordem, não fixo na conta
 - [ ] **Refatoração (2ª rodada)**: removido todo gate — qualquer conta já pode ser cliente e caixeiro automaticamente, sem toggle nem aprovação simulada no protótipo (regra real de caução/aprovação continua documentada pro Sprint 2+); ver [[15 - Chat e Comprovantes]]
 - [ ] Prevenção de autonegociação — ninguém pode aceitar a própria ordem
+- [ ] Campo `@username` no cadastro (`/register`) — único e imutável, validação de formato na UI e checagem de disponibilidade simulada (`checkUsernameAvailability`, round-trip fake); ver [[13 - Autenticação e Onboarding]]
+- [ ] Campo de país (`Select`) e cidade no onboarding (`/register`)
+- [ ] Verificação dupla por OTP após o cadastro — `/verify-email` e `/verify-phone`, código de 6 dígitos cada, componente `OtpForm` reaproveitado entre as duas; formato validado na UI, correção fica pro backend (mesmo princípio do `/mfa`)
 
 
 
