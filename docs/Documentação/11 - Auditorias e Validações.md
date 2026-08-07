@@ -8,6 +8,48 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-07 (2) — Validação pós @username/OTP, Perfil/PIX e 2ª rodada de Ofertas & Ordens
+
+Escopo: commits `a9a9484`..`7606c70` — conclusão do bucket Autenticação & Onboarding (`@username`, país/cidade, verificação dupla por OTP), bucket Perfil & Configurações completo (identidade, chaves PIX), e a 2ª rodada de Ofertas & Ordens (abas, reputação, modal de regras + senha, countdown de SLA).
+
+### Segurança
+
+| Checagem | Resultado |
+|---|---|
+| Segredos no histórico do Git (range desta passada) | ✅ Limpo — `git log a9a9484^..7606c70 -p` contra chaves privadas, API keys, `password=`, tokens AWS |
+| `npm audit` | ✅ 0 vulnerabilidades |
+| `dangerouslySetInnerHTML` / `innerHTML=` / `eval(` / `new Function(` | ✅ Única ocorrência continua sendo o bootstrap de tema em `layout.tsx` (já auditado, string estática) — nada novo |
+| `target="_blank"` sem `rel="noopener noreferrer"` | ✅ Nenhuma ocorrência |
+| Tipagem solta (`: any`, `as any`) nos arquivos novos/alterados | ✅ Nenhuma ocorrência |
+| Geração de ID (ordens, chaves PIX, mensagens) | ✅ `crypto.randomUUID()` em todo lugar, nunca `Math.random()` |
+| **Vazamento de PII na listagem pública de ofertas — REGRESSÃO ENCONTRADA E CORRIGIDA** | ⚠️→✅ A 2ª rodada de Ofertas & Ordens (reputação em `/offers`) tinha adicionado `order.clientName` visível na listagem pública, antes mesmo de um caixeiro aceitar a ordem — contradizendo o achado da auditoria de 2026-08-07 (1), que confirmava que `/offers` nunca mostrava o nome do cliente. Corrigido nesta mesma passada: o rótulo virou "Reputação do cliente" (mantém a funcionalidade de reputação sem reexpor o nome antes do vínculo entre as partes existir). Recompilado e testado no navegador após a correção. |
+| Senha reconfirmada em `orders/new/order-rules-dialog.tsx` | ✅ Fica só em `useState` local, nunca logada (`console.*`), nunca enviada a lugar nenhum, nunca persistida — consistente com "validação de UI só" (não existe conta real pra checar contra ainda) |
+| E-mail/telefone trafegando via query string entre `/register` → `/verify-email` → `/verify-phone` | ⚠️ Risco aceito e já documentado em [[13 - Autenticação e Onboarding]] — mesma muleta de prototipagem do `/kyc/status`, sem sessão real ainda. Fica registrado aqui de novo porque é PII (não só um enum de status): histórico do navegador e logs de servidor podem reter esses valores. Precisa sair assim que existir sessão real (Sprint 4) — não é aceitável em produção. |
+| Trava de titularidade das chaves PIX (`type === "cpf"`) | ✅ Comparação client-side é só UX (feedback imediato) — documentado em [[16 - Perfil e Configurações]] que a regra dura é backend (Sprint 2); não há ilusão de que a checagem do frontend é a proteção real |
+| IDOR — acesso a ordem de terceiro trocando o ID na URL | ✅ Continua bloqueado em `OrderDetail`, lógica não alterada por esta rodada (só leitura adicional de reputação da contraparte, que segue a mesma checagem de participante) |
+| Headers de segurança (`next.config.ts`) | ✅ Intactos — `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` |
+
+### Estrutura e qualidade
+
+| Checagem | Resultado |
+|---|---|
+| `npm run build` (produção) | ✅ Passa, 24 rotas geradas — inclui a correção de um erro real de build encontrado nesta janela (`otp-form.tsx` tipando `ZodType` sem o parâmetro `Input`, que derrubava os dois projetos Vercel conectados a este repositório; `next dev` não pega porque não roda o `tsc` completo) |
+| `npm run lint` | ✅ 0 problemas |
+| Idempotência da nova ação `EXPIRE` no reducer | ✅ Só aplica de `AWAITING_CLIENT_TRANSFER`; se o cliente já tiver marcado transferência antes do timer zerar, o disparo tardio de `EXPIRE` vira no-op — mesmo princípio do resto de `orders.tsx` |
+| Teste manual de ponta a ponta | ✅ Cadastro → OTP e-mail → OTP celular → KYC; perfil com trava de titularidade de PIX (caso de erro e caso de sucesso) e troca de conta; abas Comprar/Vender, aceite com countdown visível, criação de ordem com modal de regras bloqueado até concordar + senha |
+
+### Achado desta passada: regressão de PII, não um bug de ambiente
+
+Diferente das duas passadas anteriores (que não encontraram problema de segurança novo), esta encontrou uma regressão real: a funcionalidade de reputação em `/offers`, ao ser implementada, reintroduziu a exposição do nome do cliente numa tela pública que uma auditoria anterior já tinha verificado como protegida. Fica registrado como lembrete de processo: **toda vez que uma tela pública ganha um campo novo, vale reconferir contra os achados de auditorias anteriores daquela mesma tela**, não só contra a lista de checagens genéricas.
+
+### Não verificado (fora do alcance deste ambiente)
+
+Mesma lista das passadas anteriores — seguem pendentes de ação no GitHub.com por um admin da organização: 2FA obrigatório, secret scanning, Dependabot, proteção da branch `main`.
+
+### Conclusão
+
+Um achado real (PII em `/offers`), corrigido na mesma sessão antes do commit. Fora isso, nenhuma vulnerabilidade nova, nenhum segredo no histórico, `npm audit` limpo, e o erro de build que já tinha derrubado dois deploys na Vercel (commit `a26fa58`) confirmado corrigido por este `npm run build` limpo.
+
 ## 2026-08-07 — Validação pós Autenticação & Onboarding + Ofertas & Ordens
 
 Escopo: commits `8d79586`..`4ee8118` (telas de auth, backend fake de ordens, remoção do `next-themes`).

@@ -94,7 +94,7 @@ export default function OffersPage() {
                       Cotação estimada {formatBRL(order.quote)}/USDT
                     </p>
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-xs">{order.clientName}</span>
+                      <span className="text-muted-foreground text-xs">Reputação do cliente</span>
                       <ReputationStars reputation={clientReputation} emptyLabel="Sem avaliações" className="text-xs" />
                     </div>
                   </div>
