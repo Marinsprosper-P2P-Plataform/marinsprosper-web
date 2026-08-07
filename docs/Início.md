@@ -23,6 +23,7 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 9. [[09 - Roadmap de Sprints]]
 10. [[10 - Design System]] — registro de implementação (frontend), atualizado conforme os cards do Kanban avançam
 11. [[11 - Auditorias e Validações]] — log de verificações de segurança/estrutura/qualidade sobre o repositório
+12. [[12 - Deploy (Vercel)]] — preparação do deploy e passo a passo do que falta autorizar manualmente
 
 ## Como usar este vault
 
