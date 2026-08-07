@@ -23,9 +23,6 @@ kanban-plugin: board
 
 ## Perfil & Configurações (Sprint -1, dados fake)
 
-- [ ] Página de Perfil & Configurações (`(dashboard)/profile`) — exibe `@username`, país, cidade e reputação/avaliações da conta #jose
-- [ ] Cadastro e listagem de chaves PIX (tipo de chave, chave, instituição, descrição) — validação de UI da trava de titularidade (CPF/CNPJ da chave igual ao do KYC fake); aplicação real da trava fica pro backend (Sprint 2, já especificada em [[04 - Documentação de Segurança]]) #julia
-
 
 ## Ofertas & Ordens (Sprint -1, dados fake)
 
@@ -126,6 +123,8 @@ kanban-plugin: board
 - [ ] Campo `@username` no cadastro (`/register`) — único e imutável, validação de formato na UI e checagem de disponibilidade simulada (`checkUsernameAvailability`, round-trip fake); ver [[13 - Autenticação e Onboarding]]
 - [ ] Campo de país (`Select`) e cidade no onboarding (`/register`)
 - [ ] Verificação dupla por OTP após o cadastro — `/verify-email` e `/verify-phone`, código de 6 dígitos cada, componente `OtpForm` reaproveitado entre as duas; formato validado na UI, correção fica pro backend (mesmo princípio do `/mfa`)
+- [ ] Página de Perfil & Configurações (`/profile`) — `@username`, país, cidade e reputação calculada a partir das ordens concluídas com avaliação; ver [[16 - Perfil e Configurações]]
+- [ ] Cadastro e listagem de chaves PIX (`src/lib/mock/pix-keys.tsx`) — tipo de chave, chave, instituição, descrição; trava de titularidade validada na UI pro tipo CPF/CNPJ (compara com o documento fake do KYC), demais tipos só avisam que a validação real é no backend
 
 
 
