@@ -30,8 +30,11 @@ export function OrderResolutionPanel({ order }: { order: Order }) {
   const { user } = useMockSession();
   const { requestCancel, respondCancel, openDispute, rateOrder } = useMockOrders();
 
-  const isClient = user.role === "cliente" && order.clientId === user.id;
-  const isCashier = user.role === "caixeiro" && order.cashierId === user.id;
+  // `isClient`/`isCashier` são papéis DESTA ordem, não da conta em
+  // geral — a mesma conta pode ser cliente numa ordem e caixeiro em
+  // outra ao mesmo tempo.
+  const isClient = order.clientId === user.id;
+  const isCashier = order.cashierId === user.id;
   const isParticipant = isClient || isCashier;
 
   if (!isParticipant) return null;

@@ -26,6 +26,7 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 12. [[12 - Deploy (Vercel)]] — preparação do deploy e passo a passo do que falta autorizar manualmente
 13. [[13 - Autenticação e Onboarding]] — telas de login, MFA, registro, KYC, solicitação de caixeiro
 14. [[14 - Ofertas e Ordens]] — ofertas, criação de ordem, ciclo completo, cancelamento, disputa, avaliação
+15. [[15 - Chat e Comprovantes]] — chat por ordem, edição imutável, anexos privados, e a refatoração pro papel dual cliente+caixeiro
 
 ## Como usar este vault
 

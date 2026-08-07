@@ -6,6 +6,7 @@ import { OrderStatusBadge } from "@/components/shared/order-status-badge";
 import { OrderTimeline } from "@/components/shared/order-timeline";
 import { OrderActions } from "@/components/shared/order-actions";
 import { OrderResolutionPanel } from "@/components/shared/order-resolution-panel";
+import { OrderChat } from "@/components/shared/order-chat";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
@@ -28,12 +29,15 @@ export function OrderDetail({ orderId }: { orderId: string }) {
 
   // Checagem de participante — mesmo em protótipo com dados fake, um
   // cliente não deve ver o detalhe da ordem de outro cliente trocando o
-  // ID na URL (ver Documentação de Segurança, ameaça de IDOR). Caixeiro
-  // pode ver ordens OPEN pra decidir se aceita, mesmo antes de ser o
-  // participante — depois de aceita, só o caixeiro daquela ordem.
+  // ID na URL (ver Documentação de Segurança, ameaça de IDOR). Uma
+  // conta pode ser cliente numa ordem e caixeiro em outra ao mesmo
+  // tempo, então as duas checagens não são mais exclusivas entre si.
+  // Quem tem status de caixeiro também pode ver ordens ainda OPEN
+  // (de qualquer cliente) pra decidir se aceita.
   const isParticipant =
-    (user.role === "cliente" && order.clientId === user.id) ||
-    (user.role === "caixeiro" && (order.cashierId === user.id || order.status === "OPEN"));
+    order.clientId === user.id ||
+    order.cashierId === user.id ||
+    (user.isCashier && order.status === "OPEN");
 
   if (!isParticipant) {
     return (
@@ -79,6 +83,13 @@ export function OrderDetail({ orderId }: { orderId: string }) {
 
       <OrderActions order={order} />
       <OrderResolutionPanel order={order} />
+
+      {/* Chat só faz sentido entre as duas partes já ligadas à ordem —
+       * um caixeiro só olhando uma oferta OPEN pra decidir se aceita
+       * ainda não tem com quem conversar. */}
+      {(order.clientId === user.id || order.cashierId === user.id) && (
+        <OrderChat order={order} />
+      )}
     </div>
   );
 }

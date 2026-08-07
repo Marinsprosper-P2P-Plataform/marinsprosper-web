@@ -27,17 +27,25 @@ export function OrderActions({ order }: { order: Order }) {
     confirmClientReceipt,
   } = useMockOrders();
 
-  const isClient = user.role === "cliente" && order.clientId === user.id;
-  const isCashier = user.role === "caixeiro" && order.cashierId === user.id;
+  // Uma conta pode ser cliente e caixeiro ao mesmo tempo, só não pode
+  // ser as duas coisas NA MESMA ordem (autonegociação) — daí a
+  // exclusão explícita de `order.clientId === user.id` abaixo.
+  const isClient = order.clientId === user.id;
+  const isCashier = order.cashierId === user.id;
+  const canAcceptAsCashier = user.isCashier && order.clientId !== user.id;
 
   if (order.status === "OPEN") {
     return (
       <ActionCard title="Aceite">
-        {user.role === "caixeiro" ? (
+        {canAcceptAsCashier ? (
           <AcceptControl order={order} />
-        ) : (
+        ) : isClient ? (
           <p className="text-muted-foreground text-sm">
             Aguardando um caixeiro aceitar esta ordem.
+          </p>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Sua conta ainda não tem status de caixeiro pra aceitar ofertas.
           </p>
         )}
       </ActionCard>

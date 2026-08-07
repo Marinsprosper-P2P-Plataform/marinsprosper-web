@@ -10,15 +10,16 @@ import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL } from "@/lib/mock/format";
 
-/** GET /orders (status=OPEN) na visão do caixeiro — corresponde ao
- * card "Listagem de ofertas/ordens disponíveis". */
+/** GET /orders (status=OPEN) — corresponde ao card "Listagem de
+ * ofertas/ordens disponíveis". Visível a qualquer conta; só quem tem
+ * status de caixeiro (`user.isCashier`) vê o botão de aceitar — e
+ * mesmo essa conta não pode aceitar a própria ordem (sem autonegociação). */
 export default function OffersPage() {
   const { orders, acceptOrder } = useMockOrders();
   const { user } = useMockSession();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const openOrders = orders.filter((order) => order.status === "OPEN");
-  const isCashier = user.role === "caixeiro";
   const availableLimit = user.cashierAvailableLimit ?? 0;
 
   async function handleAccept(orderId: string, grossAmount: number) {
@@ -44,17 +45,20 @@ export default function OffersPage() {
         </p>
       </div>
 
-      {isCashier && (
+      {user.isCashier && (
         <p className="text-muted-foreground text-sm">
           Limite disponível: <span className="text-foreground font-medium">{formatBRL(availableLimit)}</span>
         </p>
       )}
 
-      {!isCashier && (
+      {!user.isCashier && (
         <Alert>
           <AlertDescription>
-            Você está visualizando como cliente. Só caixeiros podem aceitar
-            ofertas — troque o papel na barra lateral para testar esse fluxo.
+            Sua conta ainda não tem status de caixeiro. Solicite em{" "}
+            <Link href="/cashier-apply" className="underline">
+              Virar caixeiro
+            </Link>{" "}
+            para poder aceitar ofertas.
           </AlertDescription>
         </Alert>
       )}
@@ -65,6 +69,7 @@ export default function OffersPage() {
 
       <ul className="flex flex-col gap-3">
         {openOrders.map((order) => {
+          const isOwnOrder = order.clientId === user.id;
           const exceedsLimit = order.grossAmount > availableLimit;
 
           return (
@@ -78,6 +83,9 @@ export default function OffersPage() {
                     {order.type === "compra" ? "Compra" : "Venda"}
                   </Badge>
                   <span className="text-muted-foreground text-xs">{order.publicId}</span>
+                  {isOwnOrder && (
+                    <span className="text-muted-foreground text-xs">Sua ordem</span>
+                  )}
                 </div>
                 <p className="font-medium">
                   {formatBRL(order.grossAmount)}{" "}
@@ -92,7 +100,7 @@ export default function OffersPage() {
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/orders/${order.id}`}>Detalhes</Link>
                 </Button>
-                {isCashier && (
+                {user.isCashier && !isOwnOrder && (
                   <Button
                     size="sm"
                     disabled={acceptingId === order.id || exceedsLimit}
@@ -109,4 +117,3 @@ export default function OffersPage() {
     </div>
   );
 }
-

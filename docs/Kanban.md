@@ -26,12 +26,6 @@ kanban-plugin: board
 
 ## Chat & Comprovantes (Sprint -1, dados fake)
 
-- [ ] Componente de chat da ordem — histórico de mensagens não editáveis (edição gera nova versão, não sobrescreve) #julia
-- [ ] Envio de mensagem de texto no chat #jose
-- [ ] Envio de anexo (imagem/PDF) no chat, com preview #julia
-- [ ] Indicação visual de que anexos são privados (URL assinada temporária) — nunca linkar storage público #jose
-- [ ] Estado de "digitando..." / indicador de atividade (preparar UI para quando o WebSocket real entrar no Sprint 4) #julia
-
 
 ## Carteira & Caução — visão do Caixeiro (Sprint -1, dados fake)
 
@@ -104,12 +98,18 @@ kanban-plugin: board
 - [ ] "Backend fake" em memória (`src/lib/mock`) — máquina de estados de verdade, não só telas estáticas; ver [[14 - Ofertas e Ordens]]
 - [ ] Listagem de ofertas (`/offers`) — visão do caixeiro, respeita limite de caução disponível
 - [ ] Formulário de criação de ordem (`/orders/new`) — cotação só aparece depois de "round-trip" simulado ao backend
-- [ ] Listagem "Minhas ordens" (`/orders`) — separada por papel
+- [ ] Listagem "Minhas ordens" (`/orders`) — unificada, mostra badge "Como cliente"/"Como caixeiro" por ordem
 - [ ] Detalhe da ordem (`/orders/[id]`) com Timeline + todas as ações do ciclo (aceitar, transferir, confirmar, TXID, confirmar final), checagem de participante contra IDOR
 - [ ] Cancelamento (solicitar/responder) e disputa, a partir da ordem
 - [ ] Avaliação por estrelas pós-conclusão
 - [ ] Testado manualmente de ponta a ponta em build de produção (aceitar → transferir → confirmar → TXID → confirmar final → avaliar → criar nova ordem)
 - [ ] Removida a dependência `next-themes` (sem manutenção, incompatível com React 19) — dark mode reimplementado sem lib externa
+- [ ] Chat da ordem (`src/lib/mock/chat.tsx` + `OrderChat`) — histórico imutável, edição gera nova versão "(editada)" sem apagar a original
+- [ ] Envio de texto e anexo (imagem com preview real via blob:, PDF com ícone) no chat
+- [ ] Indicação visual de anexo privado — nunca link público
+- [ ] Indicador de "digitando" (expira sozinho, pronto pro WebSocket do Sprint 4)
+- [ ] **Refatoração**: conta pode ser cliente e caixeiro ao mesmo tempo (`user.isCashier` em vez de `role` exclusivo) — `AccountSwitcher` substitui o antigo `RoleSwitcher`; papel agora é derivado por ordem, não fixo na conta; ver [[15 - Chat e Comprovantes]]
+- [ ] Prevenção de autonegociação — caixeiro não pode aceitar a própria ordem
 
 
 
