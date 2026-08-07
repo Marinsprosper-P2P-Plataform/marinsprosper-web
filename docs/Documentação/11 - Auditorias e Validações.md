@@ -8,6 +8,47 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-07 — Validação pós Autenticação & Onboarding + Ofertas & Ordens
+
+Escopo: commits `8d79586`..`4ee8118` (telas de auth, backend fake de ordens, remoção do `next-themes`).
+
+### Segurança
+
+| Checagem | Resultado |
+|---|---|
+| Segredos no histórico do Git | ✅ Limpo — `git log --all -p` contra chaves privadas, API keys, certificados, `password=` |
+| `npm audit` | ✅ 0 vulnerabilidades |
+| `dangerouslySetInnerHTML` / `innerHTML=` / `eval(` / `new Function(` | ✅ Única ocorrência é o script de bootstrap de tema em `layout.tsx` — string estática, sem interpolação de dado de usuário |
+| `target="_blank"` sem `rel="noopener noreferrer"` | ✅ Nenhuma ocorrência nova |
+| Tipagem solta (`: any`, `as any`) | ✅ Nenhuma ocorrência em todo `src/` |
+| Geração de ID de ordem | ✅ `crypto.randomUUID()` (Web Crypto API), não `Math.random()` |
+| Cálculo de taxa financeira feito fora do "backend" simulado | ✅ Único lugar que multiplica `grossAmount` pela taxa é `src/lib/mock/pricing.ts` (a fronteira arquitetural); nenhuma tela calcula inline |
+| `localStorage` com dado sensível | ✅ Só guarda preferência de tema (`light`/`dark`) |
+| IDOR — acesso a ordem de terceiro trocando o ID na URL | ✅ `OrderDetail` bloqueia: cliente só vê as próprias ordens; caixeiro só vê as que aceitou ou ordens ainda `OPEN` (pra poder decidir se aceita) |
+| Vazamento de PII na listagem pública de ofertas | ✅ `/offers` mostra só tipo, valor, método, cotação — nunca o nome do cliente que criou a ordem |
+| Headers de segurança (`next.config.ts`) | ✅ Intactos desde a preparação do deploy — `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` |
+
+### Estrutura e qualidade
+
+| Checagem | Resultado |
+|---|---|
+| `npm run build` (produção) | ✅ Passa, 21 rotas geradas |
+| `npm run lint` | ✅ 0 problemas |
+| Máquina de estados do "backend fake" | ✅ Cada ação do reducer valida o status atual antes de escrever (idempotência real), mesmo princípio do backend de verdade — ver [[14 - Ofertas e Ordens]] |
+| Teste manual de ponta a ponta | ✅ Ciclo completo (aceitar → transferir → confirmar → TXID → confirmar final → avaliar) e criação de ordem testados clicando na UI, em build de produção |
+
+### Achado nesta passada: bug de ambiente, não de código
+
+Durante o teste manual, um erro de hidratação do React apareceu logo na primeira carga de qualquer página — inclusive a página 404 padrão do Next.js, sem nenhum código nosso envolvido. Isolado por bisecção (removendo tema, providers, scripts, um de cada vez) até confirmar que reproduz num Next.js 16.3.0 + Turbopack + React 19.2.8 "de fábrica". Não é uma falha desta aplicação. Como efeito colateral positivo da investigação, a dependência `next-themes` (sem atualização desde março de 2025, com uma issue pública documentada da mesma classe de erro) foi removida e substituída por uma implementação própria e pequena — reduz superfície de dependências não mantidas, mesmo não sendo a causa raiz do problema de ambiente.
+
+### Não verificado (fora do alcance deste ambiente)
+
+Mesma lista da passada anterior — seguem pendentes de ação no GitHub.com por um admin da organização: 2FA obrigatório, secret scanning, Dependabot, proteção da branch `main`.
+
+### Conclusão
+
+Nenhum problema de segurança encontrado no código ou no histórico desta passada. Regras de negócio críticas documentadas na Parte 1/Parte 4 (fronteira de cálculo financeiro, IDOR, idempotência, não expor motivo de bloqueio/risco) verificadas e presentes no protótipo, mesmo sem persistência real ainda.
+
 ## 2026-08-06 — Validação pós Design System (Sprint -1)
 
 Escopo: todas as mudanças desde o setup inicial até a implementação completa do Design System (commits `62cd38d`..`04c36a1`).
