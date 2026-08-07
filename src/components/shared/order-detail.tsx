@@ -7,9 +7,11 @@ import { OrderTimeline } from "@/components/shared/order-timeline";
 import { OrderActions } from "@/components/shared/order-actions";
 import { OrderResolutionPanel } from "@/components/shared/order-resolution-panel";
 import { OrderChat } from "@/components/shared/order-chat";
+import { ReputationStars } from "@/components/shared/reputation-stars";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
+import { getUserReputation } from "@/lib/mock/reputation";
 
 export function OrderDetail({ orderId }: { orderId: string }) {
   const { orders } = useMockOrders();
@@ -50,6 +52,13 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     );
   }
 
+  // Reputação de quem está do outro lado desta ordem — cliente vê a do
+  // caixeiro (se já aceitou), caixeiro vê a do cliente (sempre definido).
+  const isClient = order.clientId === user.id;
+  const counterpartyId = isClient ? order.cashierId : order.clientId;
+  const counterpartyName = isClient ? order.cashierName : order.clientName;
+  const counterpartyReputation = counterpartyId ? getUserReputation(orders, counterpartyId) : null;
+
   return (
     <div className="flex flex-col gap-6 p-4">
       <Link
@@ -72,6 +81,12 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           Taxa {formatBRL(order.feeAmount)} ({order.feePercent}%) · {formatUSDT(order.netAmount)} ·
           {" "}{order.paymentMethod}
         </p>
+        {counterpartyName && (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">{counterpartyName}</span>
+            <ReputationStars reputation={counterpartyReputation} emptyLabel="Sem avaliações" />
+          </div>
+        )}
       </div>
 
       <OrderTimeline

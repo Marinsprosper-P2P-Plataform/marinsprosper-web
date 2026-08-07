@@ -153,4 +153,9 @@ export interface Order {
    * cancelamento/disputa — usada pelo OrderTimeline pra "congelar" o
    * stepper no lugar certo em vez de zerar o progresso. */
   previousMainlineStatus?: OrderStatus;
+  /** SLA de 30 minutos pro cliente pagar, contado a partir do aceite —
+   * definido só quando a ordem entra em `AWAITING_CLIENT_TRANSFER`. No
+   * protótipo o cancelamento por timeout é simulado no cliente
+   * (`PaymentCountdown`); a fila real (BullMQ) é Sprint 3. */
+  paymentDeadline?: string;
 }

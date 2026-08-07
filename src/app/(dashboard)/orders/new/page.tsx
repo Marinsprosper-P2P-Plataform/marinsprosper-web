@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { OrderRulesDialog } from "./order-rules-dialog";
 import { quoteOrder, type OrderQuote } from "@/lib/mock/pricing";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
@@ -20,6 +21,10 @@ import { createOrderSchema, type CreateOrderInput } from "@/lib/validations/orde
  * aqui: `quote` só existe depois de `quoteOrder()` responder, simulando
  * o papel do backend real (ver Parte 1, seção 3). Qualquer mudança nos
  * campos invalida a cotação atual, forçando um novo "round-trip".
+ *
+ * Confirmar o formulário não cria a ordem direto — abre
+ * `OrderRulesDialog` (regras de uso/caução/penalidades + reconfirmação
+ * de senha), que é quem efetivamente chama `createOrder`.
  */
 export default function NewOrderPage() {
   const router = useRouter();
@@ -27,6 +32,7 @@ export default function NewOrderPage() {
   const { user } = useMockSession();
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<CreateOrderInput | null>(null);
 
   const {
     control,
@@ -62,11 +68,16 @@ export default function NewOrderPage() {
       toast.error("Calcule a taxa antes de confirmar");
       return;
     }
+    setPendingOrder(data);
+  }
+
+  function handleConfirmed() {
+    if (!pendingOrder || !quote) return;
 
     const order = createOrder({
-      type: data.type,
-      paymentMethod: data.paymentMethod,
-      grossAmount: data.grossAmount,
+      type: pendingOrder.type,
+      paymentMethod: pendingOrder.paymentMethod,
+      grossAmount: pendingOrder.grossAmount,
       quote,
       clientId: user.id,
       clientName: user.name,
@@ -145,6 +156,14 @@ export default function NewOrderPage() {
           Confirmar ordem
         </Button>
       </form>
+
+      <OrderRulesDialog
+        open={!!pendingOrder}
+        onOpenChange={(open) => {
+          if (!open) setPendingOrder(null);
+        }}
+        onConfirm={handleConfirmed}
+      />
     </div>
   );
 }

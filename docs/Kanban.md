@@ -26,12 +26,6 @@ kanban-plugin: board
 
 ## Ofertas & Ordens (Sprint -1, dados fake)
 
-- [ ] Filtro/abas "Comprar" e "Vender" em `/offers` — hoje a listagem mistura os dois tipos de ordem sem separação #jose
-- [ ] Exibição de reputação/estrelas da contraparte (histórico de ordens concluídas) em `/offers` e no detalhe da ordem #julia
-- [ ] Modal de regras de uso, caução/custódia e penalidades, exibido antes de confirmar a criação da ordem em `/orders/new` #jose
-- [ ] Reconfirmação de senha de acesso ao autorizar a abertura da ordem em `/orders/new` #julia
-- [ ] Countdown de 30 minutos no detalhe da ordem, entre aceite e pagamento — simulado no cliente (`setTimeout`, mesmo padrão de `pricing.ts`); cancelamento automático de verdade por timeout é Sprint 3 (filas BullMQ, já previsto em [[09 - Roadmap de Sprints]]) #jose
-
 
 ## Chat & Comprovantes (Sprint -1, dados fake)
 
@@ -125,6 +119,10 @@ kanban-plugin: board
 - [ ] Verificação dupla por OTP após o cadastro — `/verify-email` e `/verify-phone`, código de 6 dígitos cada, componente `OtpForm` reaproveitado entre as duas; formato validado na UI, correção fica pro backend (mesmo princípio do `/mfa`)
 - [ ] Página de Perfil & Configurações (`/profile`) — `@username`, país, cidade e reputação calculada a partir das ordens concluídas com avaliação; ver [[16 - Perfil e Configurações]]
 - [ ] Cadastro e listagem de chaves PIX (`src/lib/mock/pix-keys.tsx`) — tipo de chave, chave, instituição, descrição; trava de titularidade validada na UI pro tipo CPF/CNPJ (compara com o documento fake do KYC), demais tipos só avisam que a validação real é no backend
+- [ ] Filtro/abas "Comprar" e "Vender" em `/offers`, filtrando por `order.type` #jose
+- [ ] Reputação/estrelas da contraparte (`getUserReputation`, `ReputationStars`) reaproveitada em `/offers` e no detalhe da ordem #julia
+- [ ] Modal de regras de uso, caução/custódia e penalidades + reconfirmação de senha antes de criar a ordem (`orders/new/order-rules-dialog.tsx`) — só depois chama `createOrder` #jose
+- [ ] Countdown de 30 minutos entre aceite e pagamento (`PaymentCountdown`, `Order.paymentDeadline`, ação `EXPIRE` no reducer) — simulado no cliente, idempotente com o resto do fluxo; ver [[14 - Ofertas e Ordens]] #julia
 
 
 

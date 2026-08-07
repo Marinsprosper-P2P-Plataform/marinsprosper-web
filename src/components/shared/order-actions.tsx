@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PaymentCountdown } from "@/components/shared/payment-countdown";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import type { Order } from "@/types/order";
@@ -25,6 +26,7 @@ export function OrderActions({ order }: { order: Order }) {
     confirmCashierReceipt,
     markCashierTransferred,
     confirmClientReceipt,
+    expireOrder,
   } = useMockOrders();
 
   // Uma conta pode ser cliente e caixeiro ao mesmo tempo, só não pode
@@ -51,6 +53,12 @@ export function OrderActions({ order }: { order: Order }) {
   if (order.status === "AWAITING_CLIENT_TRANSFER") {
     return (
       <ActionCard title="Transferência do cliente">
+        {order.paymentDeadline && (
+          <PaymentCountdown
+            deadline={order.paymentDeadline}
+            onExpire={() => expireOrder(order.id)}
+          />
+        )}
         {isClient ? (
           <ClientTransferControl orderId={order.id} onSubmit={markClientTransferred} />
         ) : (

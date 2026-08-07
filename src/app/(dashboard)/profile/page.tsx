@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { StarIcon, TrashIcon } from "lucide-react";
+import { TrashIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ReputationStars } from "@/components/shared/reputation-stars";
 import { COUNTRIES } from "@/lib/validations/auth";
 import { PIX_KEY_TYPES, isCpfCnpjFormat, type PixKeyType } from "@/lib/validations/pix";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockPixKeys, type PixKey } from "@/lib/mock/pix-keys";
+import { getUserReputation } from "@/lib/mock/reputation";
 import { useMockSession } from "@/lib/mock/session";
-import { cn } from "@/lib/utils";
 
 /** GET /users/me + GET /users/me/payment-methods — protótipo com dados
  * fake. Cobre o bucket "Perfil & Configurações" do Kanban: identidade
@@ -40,17 +41,7 @@ export default function ProfilePage() {
   const { orders } = useMockOrders();
   const { pixKeys } = useMockPixKeys();
 
-  const reputation = useMemo(() => {
-    const rated = orders.filter(
-      (order) =>
-        order.status === "COMPLETED" &&
-        typeof order.rating === "number" &&
-        (order.clientId === user.id || order.cashierId === user.id),
-    );
-    if (rated.length === 0) return null;
-    const average = rated.reduce((sum, order) => sum + (order.rating ?? 0), 0) / rated.length;
-    return { average, count: rated.length };
-  }, [orders, user.id]);
+  const reputation = useMemo(() => getUserReputation(orders, user.id), [orders, user.id]);
 
   const countryLabel = COUNTRIES.find((country) => country.id === user.country)?.label ?? user.country;
   const myPixKeys = pixKeys.filter((key) => key.userId === user.id);
@@ -74,7 +65,7 @@ export default function ProfilePage() {
           <p className="text-muted-foreground text-sm">
             {user.city}, {countryLabel}
           </p>
-          <ReputationSummary reputation={reputation} />
+          <ReputationStars reputation={reputation} />
         </div>
       </div>
 
@@ -94,28 +85,6 @@ export default function ProfilePage() {
           </ul>
         )}
       </div>
-    </div>
-  );
-}
-
-function ReputationSummary({ reputation }: { reputation: { average: number; count: number } | null }) {
-  if (!reputation) {
-    return <p className="text-muted-foreground text-sm">Ainda sem avaliações</p>;
-  }
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((value) => (
-        <StarIcon
-          key={value}
-          className={cn(
-            "size-3.5",
-            reputation.average >= value - 0.5 ? "fill-primary text-primary" : "text-muted-foreground",
-          )}
-        />
-      ))}
-      <span className="text-muted-foreground text-sm">
-        {reputation.average.toFixed(1)} ({reputation.count} {reputation.count === 1 ? "avaliação" : "avaliações"})
-      </span>
     </div>
   );
 }

@@ -28,6 +28,9 @@ function nextPublicId() {
 }
 
 const now = () => new Date().toISOString();
+/** SLA de pagamento — 30 minutos a partir do aceite, contado no cliente
+ * (ver `PaymentCountdown`). Fila real de timeout é Sprint 3 (BullMQ). */
+const PAYMENT_SLA_MS = 30 * 60 * 1000;
 
 function seedOrders(): Order[] {
   const t = now();
@@ -150,7 +153,8 @@ type OrdersAction =
   | { type: "REQUEST_CANCEL"; orderId: string; requestedBy: CancelRequester; reason: string }
   | { type: "RESPOND_CANCEL"; orderId: string; accept: boolean }
   | { type: "OPEN_DISPUTE"; orderId: string; reason: string }
-  | { type: "RATE"; orderId: string; rating: number };
+  | { type: "RATE"; orderId: string; rating: number }
+  | { type: "EXPIRE"; orderId: string };
 
 /** Exportado pra UI usar exatamente a mesma lista ao decidir se mostra
  * os botões de cancelar/disputar — uma única fonte de verdade. */
@@ -189,6 +193,7 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
         status: "AWAITING_CLIENT_TRANSFER",
         cashierId: action.cashierId,
         cashierName: action.cashierName,
+        paymentDeadline: new Date(Date.now() + PAYMENT_SLA_MS).toISOString(),
       });
 
     case "CLIENT_TRANSFER":
@@ -239,6 +244,12 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
     case "RATE":
       return patch(action.orderId, ["COMPLETED"], { rating: action.rating });
 
+    case "EXPIRE":
+      return patch(action.orderId, ["AWAITING_CLIENT_TRANSFER"], (order) => ({
+        status: "EXPIRED",
+        previousMainlineStatus: order.status,
+      }));
+
     default:
       return state;
   }
@@ -263,6 +274,7 @@ interface MockOrdersContextValue {
   respondCancel: (orderId: string, accept: boolean) => void;
   openDispute: (orderId: string, reason: string) => void;
   rateOrder: (orderId: string, rating: number) => void;
+  expireOrder: (orderId: string) => void;
 }
 
 const MockOrdersContext = createContext<MockOrdersContextValue | null>(null);
@@ -336,6 +348,10 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     (orderId: string, rating: number) => dispatch({ type: "RATE", orderId, rating }),
     [],
   );
+  const expireOrder = useCallback(
+    (orderId: string) => dispatch({ type: "EXPIRE", orderId }),
+    [],
+  );
 
   return (
     <MockOrdersContext.Provider
@@ -351,6 +367,7 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
         respondCancel,
         openDispute,
         rateOrder,
+        expireOrder,
       }}
     >
       {children}
