@@ -144,6 +144,13 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   clientProofName?: string;
+  /** URL local (blob:) do comprovante anexado — é o que dá pro caixeiro
+   * de fato abrir e ver o arquivo, não só o nome. Mesmo princípio de
+   * `ChatAttachment.signedUrl` (`types/chat.ts`): no backend real seria
+   * uma URL assinada temporária de storage privado, nunca um caminho
+   * público; aqui, só local à aba do navegador. */
+  clientProofUrl?: string;
+  clientProofMimeType?: string;
   txid?: string;
   cancelRequestedBy?: CancelRequester;
   cancelReason?: string;

@@ -76,3 +76,15 @@ Rodada seguinte do mesmo bucket, todas ainda Sprint -1/dados fake:
 - **Countdown de 30 minutos (`src/components/shared/payment-countdown.tsx`)** — `Order` ganhou `paymentDeadline?: string`, setado pela ação `ACCEPT` do reducer (`now + 30min`). `PaymentCountdown` conta regressivamente no cliente (`setInterval`, mesmo espírito de round-trip simulado de `pricing.ts`) e, ao zerar, dispara a nova ação `EXPIRE` do reducer (`AWAITING_CLIENT_TRANSFER → EXPIRED`, com `previousMainlineStatus` setado igual a cancelamento/disputa, pro `OrderTimeline` congelar certo). Renderizado dentro de `OrderActions`, visível tanto pro cliente quanto pro caixeiro enquanto aguardam o pagamento. A idempotência do reducer garante que, se o cliente já marcou transferência antes do timer zerar, o `EXPIRE` que ainda estava agendado vira no-op (status já não é mais `AWAITING_CLIENT_TRANSFER`). O cancelamento automático real por timeout continua sendo trabalho de Sprint 3 (fila BullMQ) — isto é só a UX simulada.
 
 Testado manualmente em build de produção (`npm run build && npm start`): aba Vender mostrando só ordens de venda, aceite de uma ordem de venda como caixeiro exibindo "29:45 restantes" no detalhe, e criação de ordem nova passando pelo modal de regras (bloqueado até marcar o checkbox e preencher senha) até redirecionar pro detalhe. `npm run lint` e `npm run build` (typecheck completo) sem erros.
+
+## Correção: caixeiro não conseguia abrir o comprovante do cliente
+
+Achado reportado direto pelo usuário: "quem receber os comprovantes de transferências devem ter a capacidade de abri-los e vê-los". Conferindo `ClientTransferControl` (`order-actions.tsx`): o `File` escolhido no input nunca saía do componente — só `file.name` chegava em `markClientTransferred`, guardado em `Order.clientProofName`. O caixeiro via literalmente só o nome como texto (`"Comprovante anexado: comprovante-pix.pdf"`), sem link, sem imagem, sem jeito nenhum de abrir o arquivo de verdade.
+
+Corrigido:
+
+- `Order` ganhou `clientProofUrl` (e `clientProofMimeType`) além de `clientProofName`.
+- `ClientTransferControl` agora cria `URL.createObjectURL(file)` no submit e manda os três campos pra `markClientTransferred` (`orders.tsx` — ação `CLIENT_TRANSFER` e a função do Context tiveram a assinatura ampliada do mesmo jeito).
+- Novo componente compartilhado `src/components/shared/proof-link.tsx` (`ProofLink`) — um `<a target="_blank">` com nome do arquivo + indicação "Anexo privado — abrir". Usado em dois lugares: dentro de `OrderActions` (na etapa "Confirmação do caixeiro", contextual) **e** de forma persistente em `OrderDetail`, logo abaixo do cabeçalho, sempre que `order.clientProofUrl` existir — assim o comprovante continua acessível depois que a ordem sai daquele passo específico (útil pra conferir depois, inclusive numa disputa).
+
+Mesmo princípio de `ChatAttachment.signedUrl`: `blob:` local à aba, nunca um caminho de storage público. O mesmo problema (e a mesma correção) valia também pros anexos do chat — ver [[15 - Chat e Comprovantes]].

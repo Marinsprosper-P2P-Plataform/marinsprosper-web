@@ -53,3 +53,14 @@ Independente de qualquer conta poder ser as duas coisas, ninguém pode aceitar a
 4. Beto cria uma ordem nova (`/orders/new`) — vira cliente NESSA ordem específica; nem em `/offers` nem no próprio detalhe aparece um jeito de ele mesmo aceitá-la
 5. No detalhe de uma ordem com histórico de chat prévio (seed), envio de mensagem de texto funciona, aparece com nome + `(caixeiro)` + horário
 6. Edição de uma mensagem própria: nova entrada "(editada)" com o texto antigo riscado acima do novo — mensagem original preservada, não sobrescrita
+
+## Correção: anexo tinha que dar pra abrir, não só ver o nome
+
+Feedback direto: "quem receber os comprovantes de transferências devem ter a capacidade de abri-los e vê-los". Duas falhas reais encontradas:
+
+1. **`AttachmentPreview` não era clicável.** A miniatura de imagem aparecia, mas não tinha `<a>`/`onClick` nenhum — não dava pra abrir a imagem em tamanho real nem o PDF em lugar nenhum.
+2. **PDFs recebiam uma URL fake.** `buildFakeAttachment` só gerava um `blob:` de verdade pra imagens; PDFs ganhavam um caminho `https://storage.marinsprosper.example/...` que nunca existiu — clicar (se desse pra clicar) resultaria em erro de DNS/404.
+
+Corrigido: `AttachmentPreview` agora é um `<a target="_blank" rel="noopener noreferrer">` inteiro (miniatura + texto), e `buildFakeAttachment` sempre usa `URL.createObjectURL(file)`, imagem ou PDF — o navegador abre os dois nativamente numa aba nova. A mensagem seedada de exemplo (`msg-2`, `att-1`, o "comprovante-pix" da Ana pro Beto em `order-3`) também foi corrigida: trocada de uma URL fake não-funcional pra um `data:` URI de imagem real, porque não existe um `File` de verdade por trás de um seed estático pra gerar um `blob:` — mas o objetivo (mostrar um comprovante que de fato abre) precisa valer aqui também, não só nos anexos enviados ao vivo pela UI.
+
+O mesmo problema existia, ainda mais grave, no passo dedicado de comprovante da ordem (fora do chat) — ver [[14 - Ofertas e Ordens]].

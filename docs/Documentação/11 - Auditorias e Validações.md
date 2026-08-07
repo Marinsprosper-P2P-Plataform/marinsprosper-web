@@ -8,6 +8,31 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-07 (5) — Correção: comprovantes não abriam de verdade
+
+Escopo: fix reportado diretamente pelo usuário, não uma passada de bucket. Achado funcional (não é uma vulnerabilidade de segurança) — registrado aqui porque muda um caminho de dado já auditado (`Order.clientProofName`).
+
+| Checagem | Resultado |
+|---|---|
+| `npm audit` | ✅ 0 vulnerabilidades (nenhuma dependência nova) |
+| `dangerouslySetInnerHTML` / `eval(` / `: any` nos arquivos alterados | ✅ Nenhuma ocorrência |
+| Origem das URLs de anexo (`blob:` local vs. string arbitrária) | ✅ `blob:` sempre gerado por `URL.createObjectURL` a partir de um `File` real escolhido pelo próprio usuário no `<input type="file">` — não é uma string vinda de input de texto nem de rede, sem superfície de XSS via `href`/`src` |
+| `npm run build` / `npm run lint` | ✅ Limpos, 25 rotas |
+| Teste manual: anexo de chat abre numa aba nova (imagem seed corrigida de URL fake pra `data:` URI real) | ✅ Confirmado, `href` aponta pro `data:image/png` de verdade, sem erro no console além do hydration quirk já documentado |
+
+### O que estava errado
+
+Dois pontos, achados a partir de um único feedback ("quem receber os comprovantes de transferências devem ter a capacidade de abri-los e vê-los"):
+
+1. **Comprovante de pagamento da ordem** (`OrderActions` → `ClientTransferControl`) só guardava `file.name` — o `File` em si nunca saía do componente. O caixeiro via um texto, não um link.
+2. **Anexos do chat** (`AttachmentPreview`) tinham dois problemas: a miniatura não era clicável (sem `<a>`/`onClick`), e PDFs recebiam uma URL fake (`https://storage.marinsprosper.example/...`) que nunca existiu — mesmo se desse pra clicar, seria 404/erro de DNS.
+
+Detalhes da correção em [[14 - Ofertas e Ordens]] (comprovante da ordem) e [[15 - Chat e Comprovantes]] (anexos de chat).
+
+### Conclusão
+
+Achado funcional real, não uma falha de segurança — mas vale o registro porque mexeu num campo (`clientProofName`/nova `clientProofUrl`) que faz parte do fluxo financeiro da ordem, já coberto por auditorias anteriores. Nenhuma vulnerabilidade nova introduzida pela correção.
+
 ## 2026-08-07 (4) — Validação pós Administração & Mediação (4 primeiros cards)
 
 Escopo: `/admin`, `/admin/users`, `/admin/orders`, `/admin/audit-logs` (`src/lib/mock/admin-users.tsx`, `src/lib/mock/audit-log.tsx`).

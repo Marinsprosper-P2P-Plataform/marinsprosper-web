@@ -53,7 +53,7 @@ export function OrderChat({ order }: { order: Order }) {
     if (!body.trim() && !pendingFile) return;
 
     const attachments: ChatAttachment[] = pendingFile
-      ? [buildFakeAttachment(pendingFile, orderId)]
+      ? [buildFakeAttachment(pendingFile)]
       : [];
 
     sendMessage({
@@ -210,7 +210,12 @@ function AttachmentPreview({ attachment }: { attachment: ChatAttachment }) {
   const isImage = attachment.mimeType.startsWith("image/");
 
   return (
-    <div className="border-border flex items-center gap-2 rounded-md border p-2 text-xs">
+    <a
+      href={attachment.signedUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="border-border hover:bg-accent flex items-center gap-2 rounded-md border p-2 text-xs"
+    >
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- preview local de File via blob: URL, não um asset otimizável pelo next/image
         <img
@@ -225,10 +230,10 @@ function AttachmentPreview({ attachment }: { attachment: ChatAttachment }) {
         <p className="truncate font-medium">{attachment.fileName}</p>
         <p className="text-muted-foreground flex items-center gap-1">
           <LockIcon className="size-3" />
-          Anexo privado — link expira
+          Anexo privado — abrir
         </p>
       </div>
-    </div>
+    </a>
   );
 }
 
@@ -255,20 +260,17 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function buildFakeAttachment(file: File, orderId: string): ChatAttachment {
-  const isPreviewable = file.type.startsWith("image/");
+function buildFakeAttachment(file: File): ChatAttachment {
   return {
     id: `att-${crypto.randomUUID()}`,
     fileName: file.name,
     mimeType: file.type || "application/octet-stream",
     sizeBytes: file.size,
-    // Preview local via blob: URL (só funciona nesta aba/sessão) — no
-    // backend real isso seria uma URL assinada temporária de um bucket
-    // privado, nunca um caminho público. `isPreviewable` decide só se a
-    // miniatura é renderizada; PDFs mostram o ícone genérico.
-    signedUrl: isPreviewable
-      ? URL.createObjectURL(file)
-      : `https://storage.marinsprosper.example/private/${orderId}/${encodeURIComponent(file.name)}?sig=fake`,
+    // blob: local (só funciona nesta aba/sessão) — é o que dá pra quem
+    // recebe o anexo de fato abrir e ver o arquivo (imagem OU PDF), não
+    // só o nome como texto. No backend real seria uma URL assinada
+    // temporária de storage privado, nunca um caminho público.
+    signedUrl: URL.createObjectURL(file),
     expiresAt: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
   };
 }

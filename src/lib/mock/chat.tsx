@@ -48,11 +48,16 @@ function seedMessages(): ChatMessage[] {
       attachments: [
         {
           id: "att-1",
-          fileName: "comprovante-pix.pdf",
-          mimeType: "application/pdf",
-          sizeBytes: 84213,
+          fileName: "comprovante-pix.png",
+          mimeType: "image/png",
+          sizeBytes: 68,
+          // Seed estático não tem um File de verdade pra gerar um blob:
+          // — uma URL fake (`https://storage...`) não abre nada, o que é
+          // exatamente o problema que motivou este anexo existir. Um
+          // data: URI (placeholder 1x1) é a forma de manter o seed
+          // genuinamente abrível, igual a um anexo enviado de verdade.
           signedUrl:
-            "https://storage.marinsprosper.example/private/order-3/comprovante-pix.pdf?sig=fake&exp=1786060800",
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
           expiresAt: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
         },
       ],

@@ -146,7 +146,7 @@ function seedOrders(): Order[] {
 type OrdersAction =
   | { type: "CREATE"; order: Order }
   | { type: "ACCEPT"; orderId: string; cashierId: string; cashierName: string }
-  | { type: "CLIENT_TRANSFER"; orderId: string; proofName: string }
+  | { type: "CLIENT_TRANSFER"; orderId: string; proofName: string; proofUrl: string; proofMimeType: string }
   | { type: "CASHIER_CONFIRM_RECEIPT"; orderId: string }
   | { type: "CASHIER_TRANSFER"; orderId: string; txid: string }
   | { type: "CLIENT_CONFIRM"; orderId: string }
@@ -200,6 +200,8 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
       return patch(action.orderId, ["AWAITING_CLIENT_TRANSFER"], {
         status: "AWAITING_CASHIER_CONFIRMATION",
         clientProofName: action.proofName,
+        clientProofUrl: action.proofUrl,
+        clientProofMimeType: action.proofMimeType,
       });
 
     case "CASHIER_CONFIRM_RECEIPT":
@@ -266,7 +268,7 @@ interface MockOrdersContextValue {
     clientName: string;
   }) => Order;
   acceptOrder: (orderId: string, cashierId: string, cashierName: string) => void;
-  markClientTransferred: (orderId: string, proofName: string) => void;
+  markClientTransferred: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
   confirmCashierReceipt: (orderId: string) => void;
   markCashierTransferred: (orderId: string, txid: string) => void;
   confirmClientReceipt: (orderId: string) => void;
@@ -312,8 +314,8 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     [],
   );
   const markClientTransferred = useCallback(
-    (orderId: string, proofName: string) =>
-      dispatch({ type: "CLIENT_TRANSFER", orderId, proofName }),
+    (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) =>
+      dispatch({ type: "CLIENT_TRANSFER", orderId, proofName, proofUrl, proofMimeType }),
     [],
   );
   const confirmCashierReceipt = useCallback(

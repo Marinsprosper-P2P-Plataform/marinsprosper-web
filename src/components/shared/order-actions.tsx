@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaymentCountdown } from "@/components/shared/payment-countdown";
+import { ProofLink } from "@/components/shared/proof-link";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import type { Order } from "@/types/order";
@@ -75,10 +76,8 @@ export function OrderActions({ order }: { order: Order }) {
       <ActionCard title="Confirmação do caixeiro">
         {isCashier ? (
           <div className="flex flex-col gap-3">
-            {order.clientProofName && (
-              <p className="text-sm">
-                Comprovante anexado: <span className="font-medium">{order.clientProofName}</span>
-              </p>
+            {order.clientProofUrl && (
+              <ProofLink url={order.clientProofUrl} name={order.clientProofName} />
             )}
             <Button
               onClick={() => {
@@ -195,7 +194,7 @@ function ClientTransferControl({
   onSubmit,
 }: {
   orderId: string;
-  onSubmit: (orderId: string, proofName: string) => void;
+  onSubmit: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -204,7 +203,10 @@ function ClientTransferControl({
     if (!file || submitting) return;
     setSubmitting(true);
     await new Promise((resolve) => setTimeout(resolve, 400));
-    onSubmit(orderId, file.name);
+    // blob: local à aba — é o que dá pro caixeiro abrir e ver o
+    // comprovante de verdade, não só o nome do arquivo como texto.
+    const proofUrl = URL.createObjectURL(file);
+    onSubmit(orderId, file.name, proofUrl, file.type || "application/octet-stream");
     toast.success("Transferência informada");
     setSubmitting(false);
   }
