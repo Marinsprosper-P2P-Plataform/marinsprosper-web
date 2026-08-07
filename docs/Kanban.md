@@ -23,19 +23,6 @@ kanban-plugin: board
 
 ## Ofertas & Ordens (Sprint -1, dados fake)
 
-- [ ] Listagem de ofertas/ordens disponíveis (`(dashboard)/offers`) — visão do caixeiro, filtrando por limite de caução disponível #julia
-- [ ] Formulário de criação de ordem (compra/venda) pelo cliente — tipo, valor, cotação exibida, taxa de 3% mostrada antes da confirmação (nunca calculada no front, só exibida a partir da resposta do backend) #jose
-- [ ] Listagem "Minhas ordens" (`(dashboard)/orders`) — separada por papel (cliente vê as que criou, caixeiro vê as que aceitou) #julia
-- [ ] Tela de detalhe da ordem (`(dashboard)/orders/[id]`) — usa o componente de Timeline com as 11 transições da máquina de estados #jose
-- [ ] Ação "Aceitar ordem" (caixeiro) — reflete que a caução foi reservada no smart contract; UI trata idempotência (clique duplo não duplica aceite) #julia
-- [ ] Ação "Marquei que transferi" (cliente) — com upload de comprovante anexado à ordem #jose
-- [ ] Ação "Confirmar recebimento do PIX" (caixeiro) #julia
-- [ ] Ação "Enviei o ativo" (caixeiro) — campo de TXID, com aviso de que a liberação só confirma após validação on-chain, não pelo texto do TXID #jose
-- [ ] Ação "Confirmar recebimento" (cliente) — conclui a ordem, dispara liberação no contrato #julia
-- [ ] Fluxo de solicitação de cancelamento — pedido, aceite/recusa pela contraparte, com regra visível de que quem solicita não avalia depois #jose
-- [ ] Fluxo de abertura de disputa a partir da ordem — formulário de motivo + evidências #julia
-- [ ] Tela de avaliação (1 a 5) pós-conclusão — some do fluxo sem passar a avaliar antes do estado permitido #jose
-
 
 ## Chat & Comprovantes (Sprint -1, dados fake)
 
@@ -104,7 +91,7 @@ kanban-plugin: board
 - [ ] Componente `OrderStatusBadge` — mapeia os 21 estados da máquina de estados pra rótulo + cor
 - [ ] Componente `OrderTimeline` — stepper do fluxo principal, com tratamento de ramos (cancelamento/disputa/expiração)
 - [ ] Layout responsivo mobile-first — `Sidebar` (desktop) + `BottomNav` (mobile), aplicado em `(dashboard)/layout.tsx`
-- [ ] Dark mode — `next-themes` + `ThemeProvider` + `ThemeToggle`
+- [ ] Dark mode — implementação própria em `src/lib/theme.tsx` (`next-themes` foi removida depois — sem manutenção desde mar/2025, incompatível com React 19; ver [[14 - Ofertas e Ordens]])
 - [ ] Documentação do design system no Obsidian — [[10 - Design System]]
 - [ ] Página raiz (`/`) — antes era o template padrão do Next.js, agora redireciona para `/login`
 - [ ] Tela de login (`/login`) — e-mail/senha + placeholder de MFA pra caixeiro/admin
@@ -114,6 +101,15 @@ kanban-plugin: board
 - [ ] Fluxo de solicitação para virar caixeiro (`/cashier-apply`)
 - [ ] Helper de sessão expirada (`src/lib/session.ts`) — pronto pro cliente HTTP real chamar no Sprint 4
 - [ ] Tela de usuário bloqueado (`/blocked`) — sem detalhar motivo interno de risco
+- [ ] "Backend fake" em memória (`src/lib/mock`) — máquina de estados de verdade, não só telas estáticas; ver [[14 - Ofertas e Ordens]]
+- [ ] Listagem de ofertas (`/offers`) — visão do caixeiro, respeita limite de caução disponível
+- [ ] Formulário de criação de ordem (`/orders/new`) — cotação só aparece depois de "round-trip" simulado ao backend
+- [ ] Listagem "Minhas ordens" (`/orders`) — separada por papel
+- [ ] Detalhe da ordem (`/orders/[id]`) com Timeline + todas as ações do ciclo (aceitar, transferir, confirmar, TXID, confirmar final), checagem de participante contra IDOR
+- [ ] Cancelamento (solicitar/responder) e disputa, a partir da ordem
+- [ ] Avaliação por estrelas pós-conclusão
+- [ ] Testado manualmente de ponta a ponta em build de produção (aceitar → transferir → confirmar → TXID → confirmar final → avaliar → criar nova ordem)
+- [ ] Removida a dependência `next-themes` (sem manutenção, incompatível com React 19) — dark mode reimplementado sem lib externa
 
 
 

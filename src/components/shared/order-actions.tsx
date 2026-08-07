@@ -1,0 +1,268 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import { UploadIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useMockOrders } from "@/lib/mock/orders";
+import { useMockSession } from "@/lib/mock/session";
+import type { Order } from "@/types/order";
+
+/**
+ * As 5 ações que efetivamente avançam a máquina de estados (aceitar,
+ * marcar transferência, confirmar recebimento, informar TXID, confirmar
+ * recebimento final) — corresponde aos 5 endpoints POST /orders/:id/*
+ * na Parte 5. Cada uma só aparece pra quem pode executá-la, no estado
+ * em que ela é válida.
+ */
+export function OrderActions({ order }: { order: Order }) {
+  const { user } = useMockSession();
+  const {
+    markClientTransferred,
+    confirmCashierReceipt,
+    markCashierTransferred,
+    confirmClientReceipt,
+  } = useMockOrders();
+
+  const isClient = user.role === "cliente" && order.clientId === user.id;
+  const isCashier = user.role === "caixeiro" && order.cashierId === user.id;
+
+  if (order.status === "OPEN") {
+    return (
+      <ActionCard title="Aceite">
+        {user.role === "caixeiro" ? (
+          <AcceptControl order={order} />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Aguardando um caixeiro aceitar esta ordem.
+          </p>
+        )}
+      </ActionCard>
+    );
+  }
+
+  if (order.status === "AWAITING_CLIENT_TRANSFER") {
+    return (
+      <ActionCard title="Transferência do cliente">
+        {isClient ? (
+          <ClientTransferControl orderId={order.id} onSubmit={markClientTransferred} />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Aguardando o cliente transferir via {order.paymentMethod} e anexar o comprovante.
+          </p>
+        )}
+      </ActionCard>
+    );
+  }
+
+  if (order.status === "AWAITING_CASHIER_CONFIRMATION") {
+    return (
+      <ActionCard title="Confirmação do caixeiro">
+        {isCashier ? (
+          <div className="flex flex-col gap-3">
+            {order.clientProofName && (
+              <p className="text-sm">
+                Comprovante anexado: <span className="font-medium">{order.clientProofName}</span>
+              </p>
+            )}
+            <Button
+              onClick={() => {
+                confirmCashierReceipt(order.id);
+                toast.success("Recebimento confirmado");
+              }}
+            >
+              Confirmar recebimento do PIX
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Aguardando o caixeiro confirmar o recebimento do pagamento.
+          </p>
+        )}
+      </ActionCard>
+    );
+  }
+
+  if (order.status === "AWAITING_CASHIER_TRANSFER") {
+    return (
+      <ActionCard title="Envio do ativo">
+        {isCashier ? (
+          <CashierTransferControl orderId={order.id} onSubmit={markCashierTransferred} />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Aguardando o caixeiro enviar o USDT e informar o TXID.
+          </p>
+        )}
+      </ActionCard>
+    );
+  }
+
+  if (order.status === "AWAITING_CLIENT_CONFIRMATION") {
+    return (
+      <ActionCard title="Confirmação final">
+        {isClient ? (
+          <div className="flex flex-col gap-3">
+            {order.txid && (
+              <p className="text-sm">
+                TXID informado: <span className="font-mono">{order.txid}</span>
+              </p>
+            )}
+            <Alert>
+              <AlertDescription>
+                Confirme só depois de ver o USDT na sua carteira — o texto do TXID sozinho
+                não é garantia (validação on-chain acontece no backend).
+              </AlertDescription>
+            </Alert>
+            <Button
+              onClick={() => {
+                confirmClientReceipt(order.id);
+                toast.success("Ordem concluída");
+              }}
+            >
+              Confirmar recebimento
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Aguardando o cliente confirmar o recebimento do USDT.
+          </p>
+        )}
+      </ActionCard>
+    );
+  }
+
+  return null;
+}
+
+function ActionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-border flex flex-col gap-3 rounded-lg border p-4">
+      <h2 className="text-sm font-medium">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function AcceptControl({ order }: { order: Order }) {
+  const { user } = useMockSession();
+  const { acceptOrder } = useMockOrders();
+  const [accepting, setAccepting] = useState(false);
+  const availableLimit = user.cashierAvailableLimit ?? 0;
+  const exceedsLimit = order.grossAmount > availableLimit;
+
+  async function handleAccept() {
+    if (accepting) return;
+    if (exceedsLimit) {
+      toast.error("Esse valor excede seu limite disponível");
+      return;
+    }
+    setAccepting(true);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    acceptOrder(order.id, user.id, user.name);
+    toast.success("Ordem aceita — caução reservada no contrato");
+    setAccepting(false);
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-muted-foreground text-sm">
+        Limite disponível: {availableLimit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+      </p>
+      <Button onClick={handleAccept} disabled={accepting || exceedsLimit}>
+        {exceedsLimit ? "Excede seu limite" : "Aceitar ordem"}
+      </Button>
+    </div>
+  );
+}
+
+function ClientTransferControl({
+  orderId,
+  onSubmit,
+}: {
+  orderId: string;
+  onSubmit: (orderId: string, proofName: string) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (!file || submitting) return;
+    setSubmitting(true);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    onSubmit(orderId, file.name);
+    toast.success("Transferência informada");
+    setSubmitting(false);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="proof">Comprovante do PIX</Label>
+        <label
+          htmlFor="proof"
+          className="border-input hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg border border-dashed p-3 text-sm"
+        >
+          <UploadIcon className="size-4" />
+          {file ? file.name : "Toque para anexar"}
+        </label>
+        <input
+          id="proof"
+          type="file"
+          accept="image/*,.pdf"
+          className="sr-only"
+          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+        />
+      </div>
+      <Button onClick={handleSubmit} disabled={!file || submitting}>
+        Marquei que transferi
+      </Button>
+    </div>
+  );
+}
+
+function CashierTransferControl({
+  orderId,
+  onSubmit,
+}: {
+  orderId: string;
+  onSubmit: (orderId: string, txid: string) => void;
+}) {
+  const [txid, setTxid] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (!txid.trim() || submitting) return;
+    setSubmitting(true);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    onSubmit(orderId, txid.trim());
+    toast.success("Envio informado");
+    setSubmitting(false);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="txid">TXID da transação na rede Tron</Label>
+        <Input
+          id="txid"
+          value={txid}
+          onChange={(event) => setTxid(event.target.value)}
+          placeholder="0x..."
+        />
+      </div>
+      <Alert>
+        <AlertDescription>
+          A liberação só confirma após validação on-chain real (rede, contrato, valor,
+          destinatário, confirmações) — este TXID é só o que você informa, não a
+          confirmação em si.
+        </AlertDescription>
+      </Alert>
+      <Button onClick={handleSubmit} disabled={!txid.trim() || submitting}>
+        Enviei o ativo
+      </Button>
+    </div>
+  );
+}

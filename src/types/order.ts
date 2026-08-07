@@ -106,3 +106,51 @@ export const ORDER_HAPPY_PATH: OrderStatus[] = [
   "AWAITING_CLIENT_CONFIRMATION",
   "COMPLETED",
 ];
+
+export type OrderType = "compra" | "venda";
+
+export type CancelRequester = "cliente" | "caixeiro";
+
+/**
+ * Modelo simplificado da ordem para o protótipo (Sprint -1, dados fake).
+ * Espelha `orders` em [[03 - Modelo de Dados]], mas achatado — sem as
+ * tabelas satélite (order_fee_snapshots, order_proofs etc.), que só
+ * fazem sentido quando existir persistência de verdade.
+ */
+export interface Order {
+  id: string;
+  /** Identificador público não sequencial, ex. MP-20260812-000123. */
+  publicId: string;
+  type: OrderType;
+  asset: "USDT";
+  network: "TRC20";
+  fiatCurrency: "BRL";
+  paymentMethod: string;
+  /** Valor bruto em reais, antes da taxa. */
+  grossAmount: number;
+  /** Cotação USDT/BRL no momento da criação — snapshot, não recalculada depois. */
+  quote: number;
+  /** Snapshot da taxa aplicada (Parte 1, seção 4) — imutável mesmo se a
+   * configuração global mudar depois, exatamente como no modelo de dados real. */
+  feePercent: number;
+  feeAmount: number;
+  /** Quanto de USDT efetivamente troca de mãos, líquido da taxa. */
+  netAmount: number;
+  status: OrderStatus;
+  clientId: string;
+  clientName: string;
+  cashierId?: string;
+  cashierName?: string;
+  createdAt: string;
+  updatedAt: string;
+  clientProofName?: string;
+  txid?: string;
+  cancelRequestedBy?: CancelRequester;
+  cancelReason?: string;
+  disputeReason?: string;
+  rating?: number;
+  /** Onde a ordem estava no fluxo principal antes de desviar pra
+   * cancelamento/disputa — usada pelo OrderTimeline pra "congelar" o
+   * stepper no lugar certo em vez de zerar o progresso. */
+  previousMainlineStatus?: OrderStatus;
+}

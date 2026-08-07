@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { RoleSwitcher } from "@/components/shared/role-switcher";
 import { DASHBOARD_NAV_ITEMS } from "./nav-items";
 
 /** Sidebar — só aparece a partir de `md` (tablet/desktop); em telas
@@ -44,9 +45,12 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <div className="border-border flex items-center justify-between border-t px-4 py-3">
-        <span className="text-muted-foreground text-xs">Tema</span>
-        <ThemeToggle />
+      <div className="border-border flex flex-col gap-3 border-t px-4 py-3">
+        <RoleSwitcher />
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground text-xs">Tema</span>
+          <ThemeToggle />
+        </div>
       </div>
     </aside>
   );

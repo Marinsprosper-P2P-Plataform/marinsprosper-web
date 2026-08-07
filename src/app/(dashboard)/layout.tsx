@@ -1,5 +1,8 @@
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { Sidebar } from "@/components/layout/sidebar";
+import { MockOrdersProvider } from "@/lib/mock/orders";
+import { MockSessionProvider } from "@/lib/mock/session";
 
 export default function DashboardLayout({
   children,
@@ -7,12 +10,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="min-w-0 flex-1 pb-[calc(4rem+var(--spacing-safe-bottom))] md:pb-0">
-        {children}
-      </main>
-      <BottomNav />
-    </div>
+    <MockSessionProvider>
+      <MockOrdersProvider>
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <MobileHeader />
+            <main className="flex-1 pb-[calc(4rem+var(--spacing-safe-bottom))] md:pb-0">
+              {children}
+            </main>
+          </div>
+          <BottomNav />
+        </div>
+      </MockOrdersProvider>
+    </MockSessionProvider>
   );
 }

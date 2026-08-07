@@ -25,6 +25,7 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 11. [[11 - Auditorias e Validações]] — log de verificações de segurança/estrutura/qualidade sobre o repositório
 12. [[12 - Deploy (Vercel)]] — preparação do deploy e passo a passo do que falta autorizar manualmente
 13. [[13 - Autenticação e Onboarding]] — telas de login, MFA, registro, KYC, solicitação de caixeiro
+14. [[14 - Ofertas e Ordens]] — ofertas, criação de ordem, ciclo completo, cancelamento, disputa, avaliação
 
 ## Como usar este vault
 
