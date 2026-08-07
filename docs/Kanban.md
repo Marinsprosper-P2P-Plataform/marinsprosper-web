@@ -1,5 +1,7 @@
 ---
+
 kanban-plugin: board
+
 ---
 
 ## Backlog — decisões e bloqueios (fora do controle direto do front)
@@ -14,19 +16,9 @@ kanban-plugin: board
 
 ## Design System (Fase 1) — antes de qualquer tela final
 
-- [ ] Validar o design system com a equipe antes de aplicar nas telas finais #jose
 
 
 ## Autenticação & Onboarding (Sprint -1, dados fake)
-
-- [ ] Tela de login (`(auth)/login`) — e-mail/senha, com placeholder para MFA de caixeiro/admin #julia
-- [ ] Tela de segunda etapa de MFA (`/auth/mfa/verify`) — código, exibida só para caixeiro/admin após senha correta #jose
-- [ ] Tela de registro (`(auth)/register`) — formulário de cadastro, com seleção de papel (cliente ou solicitação de caixeiro) #julia
-- [ ] Fluxo de envio de documento para KYC (`/kyc/documents`) — upload de documento + selfie, com indicação visual do nível de verificação (0 a 3) #jose
-- [ ] Tela de status de KYC (`/kyc/status`) — pendente, aprovado, rejeitado, com motivo quando rejeitado #julia
-- [ ] Fluxo de solicitação para virar caixeiro (`/cashier/apply`) — formulário com métodos aceitos, países, moedas #jose
-- [ ] Estado de sessão expirada / renovação de sessão (`/auth/refresh`) tratado de forma transparente pela UI #julia
-- [ ] Tela de usuário bloqueado — mensagem clara ao tentar operar, sem detalhar motivo interno de risco #jose
 
 
 ## Ofertas & Ordens (Sprint -1, dados fake)
@@ -100,6 +92,7 @@ kanban-plugin: board
 
 ## Concluído
 
+- [ ] Validar o design system com a equipe antes de aplicar nas telas finais #jose
 - [ ] Repositório conectado ao GitHub
 - [ ] Scaffold Next.js (App Router, TypeScript, Tailwind, shadcn/ui)
 - [ ] Documentação inicial (PRD, arquitetura, modelo de dados, segurança, API, testes, incidentes)
@@ -113,6 +106,16 @@ kanban-plugin: board
 - [ ] Layout responsivo mobile-first — `Sidebar` (desktop) + `BottomNav` (mobile), aplicado em `(dashboard)/layout.tsx`
 - [ ] Dark mode — `next-themes` + `ThemeProvider` + `ThemeToggle`
 - [ ] Documentação do design system no Obsidian — [[10 - Design System]]
+- [ ] Página raiz (`/`) — antes era o template padrão do Next.js, agora redireciona para `/login`
+- [ ] Tela de login (`/login`) — e-mail/senha + placeholder de MFA pra caixeiro/admin
+- [ ] Tela de MFA (`/mfa`) — código de 6 dígitos, segunda etapa do login
+- [ ] Tela de registro (`/register`) — cadastro com seleção de papel (cliente ou caixeiro)
+- [ ] Fluxo de KYC — upload (`/kyc`) e status (`/kyc/status`, com preview de aprovado/rejeitado via query param)
+- [ ] Fluxo de solicitação para virar caixeiro (`/cashier-apply`)
+- [ ] Helper de sessão expirada (`src/lib/session.ts`) — pronto pro cliente HTTP real chamar no Sprint 4
+- [ ] Tela de usuário bloqueado (`/blocked`) — sem detalhar motivo interno de risco
+
+
 
 
 %% kanban:settings
