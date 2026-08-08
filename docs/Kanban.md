@@ -38,6 +38,16 @@ kanban-plugin: board
 ## Administração & Mediação (Sprint -1, dados fake)
 
 
+## Relatórios & Ganhos (Sprint -1, dados fake)
+
+- [ ] Especificação completa do Dashboard de Relatórios e Ganhos — 3 perfis (cliente, caixeiro, admin), decisões de arquitetura: tabela derivada `dashboard_metrics_daily` (não agregar direto no `financial_ledger`, que é INSERT-only), job assíncrono BullMQ, cache Redis (TTL curto) e rate limiting nos endpoints; endpoints propostos `GET /dashboard/client/:userId`, `/dashboard/cashier/:userId`, `/dashboard/admin/platform`, `/dashboard/export` #jose
+- [ ] Tela de relatórios do Cliente — histórico de ordens, volume negociado, ticket médio #jose
+- [ ] Tela de relatórios do Caixeiro — ganhos brutos/líquidos, ROI sobre caução, taxa de utilização da caução, taxa de conclusão #julia
+- [ ] Painel de relatórios do Admin — GMV, receita da plataforma, lucro líquido, liquidez em custódia, funil de conversão #julia
+- [ ] Filtros de período padrão (hoje, 7d, 30d, 90d, YTD, custom) reaproveitados nas 3 telas #jose
+- [ ] RBAC/isolamento de dados nos endpoints de dashboard — caixeiro só acessa os próprios dados, admin acessa todos; mesma checagem de participante usada em `/orders/[id]` #jose
+
+
 ## Integração com API real (Sprint 4)
 
 - [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL`, tratamento padronizado de erro #jose
