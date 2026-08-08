@@ -2,6 +2,21 @@
  * Máquina de estados da ordem — espelha Arquitetura Técnica, seção 4
  * (docs/Documentação/02 - Arquitetura Técnica.md). Fonte de verdade real
  * é o backend; este union só precisa acompanhar mudanças lá.
+ *
+ * `FROZEN_FOR_AUDIT` **não está** na seção 4 da Arquitetura Técnica —
+ * não existia em nenhuma documentação do projeto até o checklist de
+ * validação da Sprint -1 pedir esse estado explicitamente. Semântica
+ * adotada aqui (decisão de frontend, pendente de validar com o time
+ * antes de virar backend de verdade): um admin pode congelar qualquer
+ * ordem num estado intermediário (mesmo conjunto de
+ * `CANCELLABLE_STATUSES`) pra investigação — ex. suspeita de fraude,
+ * sinalização AML, valor atípico. Enquanto congelada, cliente e
+ * caixeiro não têm nenhuma ação disponível (`OrderActions` não
+ * renderiza controles pra este status). O admin libera de volta pro
+ * status exato onde a ordem estava (`previousMainlineStatus` guarda
+ * isso), ou escala pra disputa formal separadamente — congelar não é
+ * o mesmo que abrir disputa. Motivo é campo obrigatório (`freezeReason`),
+ * seguindo a regra "toda transição grava... motivo" da seção 4.
  */
 export type OrderStatus =
   | "DRAFT"
@@ -24,7 +39,8 @@ export type OrderStatus =
   | "DISPUTE_RESOLVED"
   | "EXPIRED"
   | "SUSPENDED"
-  | "CLOSED";
+  | "CLOSED"
+  | "FROZEN_FOR_AUDIT";
 
 /** As 6 categorias visuais definidas em globals.css (tokens --status-*). */
 export type OrderStatusCategory =
@@ -89,6 +105,7 @@ export const ORDER_STATUS_META: Record<OrderStatus, OrderStatusMeta> = {
   EXPIRED: { label: "Expirada", category: "expired" },
   SUSPENDED: { label: "Suspensa", category: "expired" },
   CLOSED: { label: "Encerrada", category: "cancelled" },
+  FROZEN_FOR_AUDIT: { label: "Congelada para auditoria", category: "dispute" },
 };
 
 /** Ordem principal da linha do tempo — ramos (cancelamento, disputa,
@@ -165,4 +182,22 @@ export interface Order {
    * protótipo o cancelamento por timeout é simulado no cliente
    * (`PaymentCountdown`); a fila real (BullMQ) é Sprint 3. */
   paymentDeadline?: string;
+  /** Motivo obrigatório de um congelamento `FROZEN_FOR_AUDIT` — ver
+   * comentário em `OrderStatus`. */
+  freezeReason?: string;
+  /**
+   * Chave PIX do cliente envolvida nesta ordem — snapshot (mesmo
+   * princípio de `feePercent`/`quote`: a chave pode ser editada ou
+   * removida depois em `/profile`, mas a ordem preserva o que foi
+   * usado no momento da criação). Em `compra`, representa a conta de
+   * origem do pagamento (checagem de titularidade/anti-triangulação:
+   * de onde o dinheiro sai precisa bater com o KYC de quem envia); em
+   * `venda`, representa a conta de destino (pra onde o caixeiro
+   * transfere). Sem isso, não dá pra criar ordem — ver `/orders/new`.
+   */
+  clientPixKeySnapshot?: {
+    type: string;
+    key: string;
+    bank: string;
+  };
 }

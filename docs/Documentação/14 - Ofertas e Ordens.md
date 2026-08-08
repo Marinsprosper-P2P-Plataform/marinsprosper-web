@@ -88,3 +88,13 @@ Corrigido:
 - Novo componente compartilhado `src/components/shared/proof-link.tsx` (`ProofLink`) — um `<a target="_blank">` com nome do arquivo + indicação "Anexo privado — abrir". Usado em dois lugares: dentro de `OrderActions` (na etapa "Confirmação do caixeiro", contextual) **e** de forma persistente em `OrderDetail`, logo abaixo do cabeçalho, sempre que `order.clientProofUrl` existir — assim o comprovante continua acessível depois que a ordem sai daquele passo específico (útil pra conferir depois, inclusive numa disputa).
 
 Mesmo princípio de `ChatAttachment.signedUrl`: `blob:` local à aba, nunca um caminho de storage público. O mesmo problema (e a mesma correção) valia também pros anexos do chat — ver [[15 - Chat e Comprovantes]].
+
+## Correção: anti-triangulação só bloqueava no cadastro, não na transação
+
+Achado do checklist de validação da Sprint -1: a trava de titularidade da chave PIX ([[16 - Perfil e Configurações]]) só existia no momento de cadastrar a chave em `/profile` — `/orders/new` nunca referenciava chave nenhuma, `paymentMethod` era um `z.literal("PIX")` fixo. Não dava pra mostrar "esta transação seria bloqueada" porque a transação não sabia nada sobre chaves.
+
+Corrigido: `/orders/new` agora exige selecionar uma chave PIX já cadastrada (`createOrderSchema` ganhou `pixKeyId` obrigatório). Sem nenhuma chave cadastrada, a tela nem mostra o formulário — só um aviso com link pra `/profile`. A chave escolhida é congelada em `Order.clientPixKeySnapshot` (`{ type, key, bank }`, mesmo princípio de snapshot de `feePercent`/`quote` — a chave pode mudar ou ser apagada depois em `/profile`, a ordem preserva o que foi usado).
+
+Reconfirmação da trava no ponto de uso: como uma chave `cpf` incompatível já não pode ser salva em `/profile`, tecnicamente nenhuma chave inválida deveria aparecer pra selecionar — mas `/orders/new` recalcula a checagem (`selectedPixKey.type === "cpf" && selectedPixKey.key !== user.document`) de novo mesmo assim, e bloqueia calcular taxa/confirmar ordem se desse caso acontecer. É defesa em profundidade, não uma segunda chance de errar — mesmo princípio de "validado no backend antes de permitir a transação" da Documentação de Segurança, replicado no ponto de uso.
+
+A chave declarada aparece de novo em `OrderActions`, na etapa "Transferência do cliente", visível tanto pro cliente quanto pro caixeiro.

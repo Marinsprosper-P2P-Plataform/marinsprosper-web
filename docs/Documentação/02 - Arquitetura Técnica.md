@@ -83,7 +83,10 @@ Ramos paralelos, a partir de qualquer estado intermediário:
      -> DISPUTE_OPEN -> DISPUTE_UNDER_REVIEW -> DISPUTE_RESOLVED
      -> EXPIRED
      -> SUSPENDED -> CLOSED
+     -> FROZEN_FOR_AUDIT -> (volta pro estado onde estava)
 ```
+
+**`FROZEN_FOR_AUDIT`** — adicionado durante a validação da Sprint -1 (não fazia parte da especificação original desta seção). Semântica adotada pelo frontend, pendente de validar com o time antes do backend implementar de verdade: um admin congela qualquer ordem num estado intermediário pra investigação (fraude, AML, valor atípico), bloqueando toda ação de cliente/caixeiro até liberar — e liberar volta a ordem pro status exato onde estava, não avança nem reseta o fluxo. Diferente de `DISPUTE_OPEN`, que é sempre escalada por uma das partes; congelar é sempre iniciativa do admin. Motivo é obrigatório, mesma regra de "toda transição grava... motivo" abaixo. Ver [[18 - Administração e Mediação]] pra implementação de referência no protótipo.
 
 Regras que valem para toda transição, sem exceção:
 

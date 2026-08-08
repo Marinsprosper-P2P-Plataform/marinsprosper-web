@@ -60,6 +60,11 @@ export function OrderActions({ order }: { order: Order }) {
             onExpire={() => expireOrder(order.id)}
           />
         )}
+        {order.clientPixKeySnapshot && (
+          <p className="text-muted-foreground text-xs">
+            Chave PIX declarada: {order.clientPixKeySnapshot.key} ({order.clientPixKeySnapshot.bank})
+          </p>
+        )}
         {isClient ? (
           <ClientTransferControl orderId={order.id} onSubmit={markClientTransferred} />
         ) : (
@@ -141,6 +146,20 @@ export function OrderActions({ order }: { order: Order }) {
             Aguardando o cliente confirmar o recebimento do USDT.
           </p>
         )}
+      </ActionCard>
+    );
+  }
+
+  if (order.status === "FROZEN_FOR_AUDIT") {
+    return (
+      <ActionCard title="Ordem congelada">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Esta ordem foi congelada por um administrador para auditoria — nenhuma ação fica
+            disponível até ela ser liberada.
+            {order.freezeReason && ` Motivo: ${order.freezeReason}`}
+          </AlertDescription>
+        </Alert>
       </ActionCard>
     );
   }

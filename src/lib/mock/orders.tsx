@@ -156,7 +156,9 @@ type OrdersAction =
   | { type: "RATE"; orderId: string; rating: number }
   | { type: "EXPIRE"; orderId: string }
   | { type: "REVIEW_DISPUTE"; orderId: string }
-  | { type: "RESOLVE_DISPUTE"; orderId: string };
+  | { type: "RESOLVE_DISPUTE"; orderId: string }
+  | { type: "FREEZE_ORDER"; orderId: string; reason: string }
+  | { type: "UNFREEZE_ORDER"; orderId: string };
 
 /** Exportado pra UI usar exatamente a mesma lista ao decidir se mostra
  * os botões de cancelar/disputar — uma única fonte de verdade. */
@@ -262,6 +264,20 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
         status: "DISPUTE_RESOLVED",
       });
 
+    case "FREEZE_ORDER":
+      return patch(action.orderId, CANCELLABLE_STATUSES, (order) => ({
+        status: "FROZEN_FOR_AUDIT",
+        freezeReason: action.reason,
+        previousMainlineStatus: order.status,
+      }));
+
+    case "UNFREEZE_ORDER":
+      return patch(action.orderId, ["FROZEN_FOR_AUDIT"], (order) => ({
+        status: order.previousMainlineStatus ?? "AWAITING_CLIENT_TRANSFER",
+        freezeReason: undefined,
+        previousMainlineStatus: undefined,
+      }));
+
     default:
       return state;
   }
@@ -276,6 +292,7 @@ interface MockOrdersContextValue {
     quote: OrderQuote;
     clientId: string;
     clientName: string;
+    clientPixKeySnapshot: { type: string; key: string; bank: string };
   }) => Order;
   acceptOrder: (orderId: string, cashierId: string, cashierName: string) => void;
   markClientTransferred: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
@@ -289,6 +306,8 @@ interface MockOrdersContextValue {
   expireOrder: (orderId: string) => void;
   reviewDispute: (orderId: string) => void;
   resolveDispute: (orderId: string) => void;
+  freezeOrder: (orderId: string, reason: string) => void;
+  unfreezeOrder: (orderId: string) => void;
 }
 
 const MockOrdersContext = createContext<MockOrdersContextValue | null>(null);
@@ -313,6 +332,7 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
       status: "OPEN",
       clientId: input.clientId,
       clientName: input.clientName,
+      clientPixKeySnapshot: input.clientPixKeySnapshot,
       createdAt: now(),
       updatedAt: now(),
     };
@@ -374,6 +394,14 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     (orderId: string) => dispatch({ type: "RESOLVE_DISPUTE", orderId }),
     [],
   );
+  const freezeOrder = useCallback(
+    (orderId: string, reason: string) => dispatch({ type: "FREEZE_ORDER", orderId, reason }),
+    [],
+  );
+  const unfreezeOrder = useCallback(
+    (orderId: string) => dispatch({ type: "UNFREEZE_ORDER", orderId }),
+    [],
+  );
 
   return (
     <MockOrdersContext.Provider
@@ -392,6 +420,8 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
         expireOrder,
         reviewDispute,
         resolveDispute,
+        freezeOrder,
+        unfreezeOrder,
       }}
     >
       {children}

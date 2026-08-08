@@ -29,7 +29,8 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 15. [[15 - Chat e Comprovantes]] — chat por ordem, edição imutável, anexos privados, e a refatoração pro papel dual cliente+caixeiro
 16. [[16 - Perfil e Configurações]] — página de identidade (`@username`, país, cidade, reputação) e cadastro de chaves PIX com trava de titularidade
 17. [[17 - Carteira e Caução]] — visão do caixeiro: sete saldos separados, limite derivado, depósito com espera de confirmação on-chain, disponibilidade
-18. [[18 - Administração e Mediação]] — painel admin, usuários, ordens consolidadas, log de auditoria (implementação parcial)
+18. [[18 - Administração e Mediação]] — painel admin, usuários, ordens consolidadas, log de auditoria, blacklist, disputas, máscara de dados, MFA
+19. [[19 - Checklist de Validação Sprint -1]] — validação formal item a item, com os gaps encontrados (`FROZEN_FOR_AUDIT`, anti-triangulação na transação) e como foram corrigidos
 
 ## Como usar este vault
 

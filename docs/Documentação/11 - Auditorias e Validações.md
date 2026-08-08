@@ -8,6 +8,23 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-08 (2) — Checklist de validação da Sprint -1
+
+Escopo: checklist formal de 5 itens recebido do time, cobrindo fluxos navegáveis, máquina de estados, anti-triangulação, feedback humano e decisões de UX pendentes. Resultado completo em [[19 - Checklist de Validação Sprint -1]] — aqui só a parte técnica/segurança.
+
+| Checagem | Resultado |
+|---|---|
+| `npm audit` | ✅ 0 vulnerabilidades |
+| `dangerouslySetInnerHTML` / `eval(` / `: any` / `as any` nos arquivos alterados | ✅ Nenhuma ocorrência |
+| `npm run build` / `npm run lint` | ✅ Limpos, 25 rotas — inclui correção de um warning real (`watch()` do react-hook-form chamado direto no render, incompatível com memoização do React Compiler; trocado por `useWatch`) |
+| Trava anti-triangulação reforçada em `/orders/new` | ✅ Re-checagem no ponto de uso, defesa em profundidade (a chave já não deveria conseguir ter sido salva incompatível, mas a ordem confere de novo mesmo assim) |
+| `FROZEN_FOR_AUDIT` — controle de quem pode congelar | ⚠️ Ação só em `/admin/orders`, mas sem RBAC (mesma limitação de fundo já registrada nas passadas anteriores — qualquer conta acessa `/admin/*`). Não é uma exposição nova, é a mesma pendência de sempre alcançando mais uma tela |
+| Teste manual: criar ordem com chave PIX → congelar → bloqueio confirmado → liberar | ✅ Ponta a ponta no navegador, sem erro no console além do hydration quirk documentado |
+
+### Conclusão
+
+Dois gaps funcionais reais encontrados pelo checklist (não por esta auditoria) e corrigidos na mesma sessão: estado `FROZEN_FOR_AUDIT` ausente, e trava anti-triangulação que só existia no cadastro da chave, não na transação. Nenhuma vulnerabilidade nova. O item de controle de acesso administrativo continua sendo a mesma pendência de fundo já registrada — não descoberta agora, só mais uma superfície que ela cobre.
+
 ## 2026-08-08 — Validação pós Administração & Mediação (5 cards finais)
 
 Escopo: blacklist, disputas (listagem + decisão), máscara de dados sensíveis e indicação de MFA — os 5 cards restantes do bucket, completando-o (ver [[18 - Administração e Mediação]]).

@@ -32,6 +32,8 @@ kanban-plugin: board
 
 ## Carteira & Caução — visão do Caixeiro (Sprint -1, dados fake)
 
+- [ ] Fluxo de saque de caução — `CollateralAccount.pendingWithdrawal` existe no modelo (`src/lib/mock/collateral.tsx`) mas nenhuma tela o alimenta ainda; só depósito foi implementado. Achado no checklist de validação da Sprint -1, ver [[19 - Checklist de Validação Sprint -1]] #jose
+
 
 ## Administração & Mediação (Sprint -1, dados fake)
 
@@ -119,6 +121,7 @@ kanban-plugin: board
 - [ ] Detalhe/decisão de disputa (`/admin/disputes/[id]`) — evidências (comprovante/TXID reaproveitados da ordem), chat restrito (notas só entre mediadores, separado do `OrderChat`), decisão com "recomendado por"/"aprovado por" validados como distintos; mesma checagem de atribuição da listagem aplicada de novo no acesso direto pela URL #julia
 - [ ] Máscara de dados sensíveis por padrão (`MaskedValue`) — aplicada ao documento em `/admin/users`, revelar sempre registra evento no log de auditoria #jose
 - [ ] Indicação de MFA obrigatório (`MfaNotice`) — ao lado de cada ação crítica: aprovar cadastro, incluir na blacklist, resolver disputa #julia
+- [ ] Checklist de validação da Sprint -1 — dois gaps encontrados e corrigidos: estado `FROZEN_FOR_AUDIT` (congelar/liberar ordem em `/admin/orders`, semântica documentada em [[02 - Arquitetura Técnica]]) e trava anti-triangulação reforçada no momento da transação (seleção obrigatória de chave PIX em `/orders/new`, `Order.clientPixKeySnapshot`); registro completo em [[19 - Checklist de Validação Sprint -1]] #jose
 
 
 
