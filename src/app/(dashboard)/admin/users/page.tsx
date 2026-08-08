@@ -13,6 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { MaskedValue } from "@/components/shared/masked-value";
+import { MfaNotice } from "@/components/shared/mfa-notice";
 import { useMockAdminUsers, type UserStatus } from "@/lib/mock/admin-users";
 import { useMockAuditLog } from "@/lib/mock/audit-log";
 import { useMockSession } from "@/lib/mock/session";
@@ -64,6 +66,16 @@ export default function AdminUsersPage() {
     toast.success(`${name} aprovada(o)`);
   }
 
+  function handleRevealDocument(candidateName: string, candidateUsername: string) {
+    logEvent({
+      category: "admin",
+      actor: `${user.name} (admin)`,
+      action: "Documento sensível revelado",
+      target: `${candidateName} (@${candidateUsername})`,
+      details: "CPF/CNPJ exibido sem máscara na tela de usuários.",
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4">
       <div>
@@ -84,6 +96,7 @@ export default function AdminUsersPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Contato</TableHead>
+              <TableHead>Documento</TableHead>
               <TableHead>KYC</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ação</TableHead>
@@ -104,6 +117,12 @@ export default function AdminUsersPage() {
                     <span className="text-muted-foreground">{candidate.phone}</span>
                   </div>
                 </TableCell>
+                <TableCell>
+                  <MaskedValue
+                    value={candidate.document}
+                    onReveal={() => handleRevealDocument(candidate.name, candidate.username)}
+                  />
+                </TableCell>
                 <TableCell>Nível {candidate.kycLevel}</TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[candidate.status]}>
@@ -112,19 +131,22 @@ export default function AdminUsersPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   {candidate.status === "pendente" && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(candidate.id, candidate.name, candidate.username)}
-                    >
-                      Aprovar
-                    </Button>
+                    <div className="flex flex-col items-end gap-1">
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(candidate.id, candidate.name, candidate.username)}
+                      >
+                        Aprovar
+                      </Button>
+                      <MfaNotice />
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground text-center">
+                <TableCell colSpan={6} className="text-muted-foreground text-center">
                   Nenhum usuário encontrado.
                 </TableCell>
               </TableRow>

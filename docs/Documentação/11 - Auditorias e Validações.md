@@ -8,6 +8,29 @@ tags: [segurança, qualidade, auditoria]
 
 Registro cronológico de passadas de verificação sobre o repositório — segurança, estrutura, qualidade. Não substitui o checklist formal de auditoria de [[04 - Documentação de Segurança]] (esse é para quando houver dinheiro real em jogo); é o equivalente leve para o dia a dia do frontend.
 
+## 2026-08-08 — Validação pós Administração & Mediação (5 cards finais)
+
+Escopo: blacklist, disputas (listagem + decisão), máscara de dados sensíveis e indicação de MFA — os 5 cards restantes do bucket, completando-o (ver [[18 - Administração e Mediação]]).
+
+| Checagem | Resultado |
+|---|---|
+| `npm audit` | ✅ 0 vulnerabilidades |
+| `dangerouslySetInnerHTML` / `eval(` / `: any` / `as any` nos arquivos novos | ✅ Nenhuma ocorrência |
+| Documento sensível (`AdminUser.document`) exposto sem máscara por padrão | ✅ Não — `MaskedValue` mascara por padrão em todo lugar onde é usado; revelar sempre chama `logEvent` (testado: evento "Documento sensível revelado" aparece em `/admin/audit-logs` com o admin e o alvo) |
+| IDOR — `/admin/disputes/[id]` acessado direto pela URL por mediador não atribuído | ✅ Bloqueado ("Este caso não está atribuído a você"), testado como Ana Ferreira contra o caso atribuído ao Beto |
+| Restrição "casos atribuídos" na listagem | ✅ Testado nas duas contas — Ana vê lista vazia, Beto vê `order-5` |
+| Validação de dupla checagem (recomendado por ≠ aprovado por) | ✅ Bloqueia com nomes iguais (case-insensitive), libera com nomes diferentes, testado nos dois caminhos |
+| `npm run build` / `npm run lint` | ✅ Limpos, 25 rotas |
+| Teste manual: fluxo completo de disputa (assumir revisão → nota interna → decisão → log de auditoria) | ✅ Confirmado ponta a ponta, sem erro no console além do hydration quirk documentado |
+
+### Achado corrigido durante o teste manual
+
+`logEvent` na resolução de disputa concatenava `(admin)` no nome digitado em "Aprovado por", que às vezes já vinha com esse sufixo (ex. o usuário digitou "Julia (admin)") — resultado: `"Julia (admin) (admin)"` no log. Corrigido pra usar o valor digitado como está, sem concatenar nada — o campo já é livre o suficiente pra quem preenche decidir como se identificar.
+
+### Conclusão
+
+Nenhuma vulnerabilidade nova. O achado de controle de acesso já registrado na rodada anterior (nenhuma tela `/admin/*` tem RBAC) continua valendo pras 3 telas novas — não é uma regressão desta passada, é a mesma limitação de fundo já documentada, que só backend resolve de verdade.
+
 ## 2026-08-07 (5) — Correção: comprovantes não abriam de verdade
 
 Escopo: fix reportado diretamente pelo usuário, não uma passada de bucket. Achado funcional (não é uma vulnerabilidade de segurança) — registrado aqui porque muda um caminho de dado já auditado (`Order.clientProofName`).

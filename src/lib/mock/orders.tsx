@@ -154,7 +154,9 @@ type OrdersAction =
   | { type: "RESPOND_CANCEL"; orderId: string; accept: boolean }
   | { type: "OPEN_DISPUTE"; orderId: string; reason: string }
   | { type: "RATE"; orderId: string; rating: number }
-  | { type: "EXPIRE"; orderId: string };
+  | { type: "EXPIRE"; orderId: string }
+  | { type: "REVIEW_DISPUTE"; orderId: string }
+  | { type: "RESOLVE_DISPUTE"; orderId: string };
 
 /** Exportado pra UI usar exatamente a mesma lista ao decidir se mostra
  * os botões de cancelar/disputar — uma única fonte de verdade. */
@@ -252,6 +254,14 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
         previousMainlineStatus: order.status,
       }));
 
+    case "REVIEW_DISPUTE":
+      return patch(action.orderId, ["DISPUTE_OPEN"], { status: "DISPUTE_UNDER_REVIEW" });
+
+    case "RESOLVE_DISPUTE":
+      return patch(action.orderId, ["DISPUTE_OPEN", "DISPUTE_UNDER_REVIEW"], {
+        status: "DISPUTE_RESOLVED",
+      });
+
     default:
       return state;
   }
@@ -277,6 +287,8 @@ interface MockOrdersContextValue {
   openDispute: (orderId: string, reason: string) => void;
   rateOrder: (orderId: string, rating: number) => void;
   expireOrder: (orderId: string) => void;
+  reviewDispute: (orderId: string) => void;
+  resolveDispute: (orderId: string) => void;
 }
 
 const MockOrdersContext = createContext<MockOrdersContextValue | null>(null);
@@ -354,6 +366,14 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     (orderId: string) => dispatch({ type: "EXPIRE", orderId }),
     [],
   );
+  const reviewDispute = useCallback(
+    (orderId: string) => dispatch({ type: "REVIEW_DISPUTE", orderId }),
+    [],
+  );
+  const resolveDispute = useCallback(
+    (orderId: string) => dispatch({ type: "RESOLVE_DISPUTE", orderId }),
+    [],
+  );
 
   return (
     <MockOrdersContext.Provider
@@ -370,6 +390,8 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
         openDispute,
         rateOrder,
         expireOrder,
+        reviewDispute,
+        resolveDispute,
       }}
     >
       {children}

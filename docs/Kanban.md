@@ -35,12 +35,6 @@ kanban-plugin: board
 
 ## Administração & Mediação (Sprint -1, dados fake)
 
-- [ ] Gestão de blacklist (`(dashboard)/admin/blacklist`) — inclusão com campo obrigatório de evidências e motivo #julia
-- [ ] Listagem de disputas para o mediador (`(dashboard)/admin/disputes`) — restrita aos casos atribuídos #jose
-- [ ] Tela de detalhe/decisão de disputa (`(dashboard)/admin/disputes/[id]`) — evidências, chat restrito, decisão com campos separados de "recomendado por" e "aprovado por" #julia
-- [ ] Máscara de dados sensíveis por padrão nas telas administrativas (documento, dados bancários, endereço de carteira) — visível só sob ação explícita e logada #jose
-- [ ] Indicação de MFA obrigatório e reforço de autenticação para ações administrativas críticas #julia
-
 
 ## Integração com API real (Sprint 4)
 
@@ -119,7 +113,12 @@ kanban-plugin: board
 - [ ] Painel administrativo — home (`/admin`) com contadores reais (usuários, ordens por categoria) e atalhos pras outras telas #julia
 - [ ] Listagem e busca de usuários (`/admin/users`, `src/lib/mock/admin-users.tsx`) com ação de aprovar cadastro — aprovação já registra evento no log de auditoria #jose
 - [ ] Visão consolidada de ordens (`/admin/orders`) — todas as ordens da plataforma, sem a checagem de participante de `/orders/[id]` #julia
-- [ ] Log de auditoria (`/admin/audit-logs`, `src/lib/mock/audit-log.tsx`) — somente leitura, categorias on-chain/admin, sem nenhuma ação de editar/apagar; ver [[18 - Administração e Mediação]]. **Achado de segurança registrado**: as 4 telas deste bloco ainda não têm controle de acesso por papel — qualquer conta navega até elas; aceitável só enquanto o protótipo inteiro roda sem autenticação real #jose
+- [ ] Log de auditoria (`/admin/audit-logs`, `src/lib/mock/audit-log.tsx`) — somente leitura, categorias on-chain/admin, sem nenhuma ação de editar/apagar; ver [[18 - Administração e Mediação]]. **Achado de segurança registrado**: as telas deste bucket ainda não têm controle de acesso por papel — qualquer conta navega até elas; aceitável só enquanto o protótipo inteiro roda sem autenticação real #jose
+- [ ] Gestão de blacklist (`/admin/blacklist`, `src/lib/mock/blacklist.tsx`) — motivo e evidências obrigatórios, inclusão registra evento no log de auditoria #julia
+- [ ] Listagem de disputas restrita aos casos atribuídos (`/admin/disputes`, `src/lib/mock/disputes.tsx`) — filtra por `assignedMediatorId === user.id`, testado trocando de conta #jose
+- [ ] Detalhe/decisão de disputa (`/admin/disputes/[id]`) — evidências (comprovante/TXID reaproveitados da ordem), chat restrito (notas só entre mediadores, separado do `OrderChat`), decisão com "recomendado por"/"aprovado por" validados como distintos; mesma checagem de atribuição da listagem aplicada de novo no acesso direto pela URL #julia
+- [ ] Máscara de dados sensíveis por padrão (`MaskedValue`) — aplicada ao documento em `/admin/users`, revelar sempre registra evento no log de auditoria #jose
+- [ ] Indicação de MFA obrigatório (`MfaNotice`) — ao lado de cada ação crítica: aprovar cadastro, incluir na blacklist, resolver disputa #julia
 
 
 

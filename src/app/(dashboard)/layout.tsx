@@ -3,9 +3,11 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { MockAdminUsersProvider } from "@/lib/mock/admin-users";
 import { MockAuditLogProvider } from "@/lib/mock/audit-log";
-import { ChatProvider } from "@/lib/mock/chat";
+import { MockBlacklistProvider } from "@/lib/mock/blacklist";
 import { MockCashierAvailabilityProvider } from "@/lib/mock/cashier-availability";
+import { ChatProvider } from "@/lib/mock/chat";
 import { MockCollateralProvider } from "@/lib/mock/collateral";
+import { MockDisputesProvider } from "@/lib/mock/disputes";
 import { MockOrdersProvider } from "@/lib/mock/orders";
 import { MockPixKeysProvider } from "@/lib/mock/pix-keys";
 import { MockSessionProvider } from "@/lib/mock/session";
@@ -23,18 +25,22 @@ export default function DashboardLayout({
             <MockCashierAvailabilityProvider>
               <MockAdminUsersProvider>
                 <MockAuditLogProvider>
-                  <ChatProvider>
-                    <div className="flex min-h-screen">
-                      <Sidebar />
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <MobileHeader />
-                        <main className="flex-1 pb-[calc(4rem+var(--spacing-safe-bottom))] md:pb-0">
-                          {children}
-                        </main>
-                      </div>
-                      <BottomNav />
-                    </div>
-                  </ChatProvider>
+                  <MockBlacklistProvider>
+                    <MockDisputesProvider>
+                      <ChatProvider>
+                        <div className="flex min-h-screen">
+                          <Sidebar />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <MobileHeader />
+                            <main className="flex-1 pb-[calc(4rem+var(--spacing-safe-bottom))] md:pb-0">
+                              {children}
+                            </main>
+                          </div>
+                          <BottomNav />
+                        </div>
+                      </ChatProvider>
+                    </MockDisputesProvider>
+                  </MockBlacklistProvider>
                 </MockAuditLogProvider>
               </MockAdminUsersProvider>
             </MockCashierAvailabilityProvider>

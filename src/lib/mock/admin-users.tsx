@@ -26,6 +26,10 @@ export interface AdminUser {
   /** Nível de KYC (0 a 3), igual à faixa de `kyc_cases`. */
   kycLevel: 0 | 1 | 2 | 3;
   createdAt: string;
+  /** CPF/CNPJ fake — campo sensível, mascarado por padrão nas telas
+   * administrativas ([[03 - Modelo de Dados]]: "campos sensíveis... são
+   * mascarados por padrão"). Ver `MaskedValue`. */
+  document: string;
 }
 
 function seedUsers(): AdminUser[] {
@@ -39,6 +43,7 @@ function seedUsers(): AdminUser[] {
       status: "aprovado",
       kycLevel: 2,
       createdAt: "2026-06-02T10:00:00.000Z",
+      document: "123.456.789-00",
     },
     {
       id: "user-cashier-1",
@@ -49,6 +54,7 @@ function seedUsers(): AdminUser[] {
       status: "aprovado",
       kycLevel: 3,
       createdAt: "2026-05-20T10:00:00.000Z",
+      document: "987.654.321-00",
     },
     {
       id: "user-client-2",
@@ -59,6 +65,7 @@ function seedUsers(): AdminUser[] {
       status: "aprovado",
       kycLevel: 1,
       createdAt: "2026-06-10T10:00:00.000Z",
+      document: "111.222.333-44",
     },
     {
       id: "user-client-3",
@@ -69,6 +76,7 @@ function seedUsers(): AdminUser[] {
       status: "pendente",
       kycLevel: 0,
       createdAt: "2026-08-05T14:30:00.000Z",
+      document: "555.666.777-88",
     },
     {
       id: "user-client-4",
@@ -79,6 +87,7 @@ function seedUsers(): AdminUser[] {
       status: "suspenso",
       kycLevel: 2,
       createdAt: "2026-04-11T10:00:00.000Z",
+      document: "222.333.444-55",
     },
     {
       id: "user-client-5",
@@ -89,6 +98,7 @@ function seedUsers(): AdminUser[] {
       status: "bloqueado",
       kycLevel: 1,
       createdAt: "2026-03-22T10:00:00.000Z",
+      document: "333.444.555-66",
     },
   ];
 }
