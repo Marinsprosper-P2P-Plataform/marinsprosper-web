@@ -7,3 +7,7 @@ export function formatBRL(value: number) {
 export function formatUSDT(value: number) {
   return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} USDT`;
 }
+
+export function formatPercent(value: number) {
+  return `${(value * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+}

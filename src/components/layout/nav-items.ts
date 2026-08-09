@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { ListOrdered, ShieldCheck, Store, User, Wallet } from "lucide-react";
+import { BarChart3, ListOrdered, ShieldCheck, Store, User, Wallet } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -13,6 +13,7 @@ export const DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: "/offers", label: "Ofertas", icon: Store },
   { href: "/orders", label: "Ordens", icon: ListOrdered },
   { href: "/wallet", label: "Carteira", icon: Wallet },
+  { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/profile", label: "Perfil", icon: User },
   { href: "/admin", label: "Admin", icon: ShieldCheck },
 ];

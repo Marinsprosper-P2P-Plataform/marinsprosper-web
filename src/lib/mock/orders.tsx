@@ -32,6 +32,86 @@ const now = () => new Date().toISOString();
  * (ver `PaymentCountdown`). Fila real de timeout é Sprint 3 (BullMQ). */
 const PAYMENT_SLA_MS = 30 * 60 * 1000;
 
+/** Timestamp fake no passado — só pra dar massa histórica com
+ * distribuição real ao longo dos últimos ~90 dias, pro bucket
+ * Relatórios & Ganhos ter o que agregar (filtro de período, gráficos).
+ * As 5 ordens originais (order-1..5) continuam todas com `createdAt = t`
+ * (o instante do carregamento), então ficam de fora de qualquer período
+ * que não seja "hoje" — por isso este histórico é necessário. */
+function daysAgo(days: number) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** Taxa fixa em 3% (ver `pricing.ts`) — usada aqui só pra manter as
+ * ordens históricas consistentes com o mesmo cálculo do `quoteOrder`. */
+function feeSnapshot(grossAmount: number) {
+  const feeAmount = Math.round(grossAmount * 0.03 * 100) / 100;
+  const netAmount = Math.round(((grossAmount - feeAmount) / 5.42) * 1_000_000) / 1_000_000;
+  return { feeAmount, netAmount };
+}
+
+interface HistoricalOrderInput {
+  id: string;
+  type: OrderType;
+  grossAmount: number;
+  status: "COMPLETED" | "CANCEL_ACCEPTED" | "EXPIRED";
+  clientId: "user-client-1" | "user-client-2";
+  clientName: string;
+  daysAgo: number;
+  rating?: number;
+}
+
+/** Ordens concluídas/canceladas/expiradas no passado — todas envolvendo
+ * o único caixeiro logável do protótipo (`user-cashier-1`, Beto), exceto
+ * a expirada, que nunca chega a ter caixeiro. */
+function seedHistoricalOrders(): Order[] {
+  const inputs: HistoricalOrderInput[] = [
+    { id: "order-h1", type: "compra", grossAmount: 400, status: "COMPLETED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 2, rating: 5 },
+    { id: "order-h2", type: "venda", grossAmount: 900, status: "COMPLETED", clientId: "user-client-2", clientName: "Carla Souza", daysAgo: 5, rating: 4 },
+    { id: "order-h3", type: "compra", grossAmount: 250, status: "COMPLETED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 9, rating: 5 },
+    { id: "order-h4", type: "venda", grossAmount: 1500, status: "COMPLETED", clientId: "user-client-2", clientName: "Carla Souza", daysAgo: 14, rating: 5 },
+    { id: "order-h5", type: "compra", grossAmount: 600, status: "COMPLETED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 20, rating: 4 },
+    { id: "order-h6", type: "venda", grossAmount: 350, status: "COMPLETED", clientId: "user-client-2", clientName: "Carla Souza", daysAgo: 28, rating: 5 },
+    { id: "order-h7", type: "compra", grossAmount: 2000, status: "COMPLETED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 35, rating: 5 },
+    { id: "order-h8", type: "venda", grossAmount: 700, status: "COMPLETED", clientId: "user-client-2", clientName: "Carla Souza", daysAgo: 45, rating: 3 },
+    { id: "order-h9", type: "compra", grossAmount: 500, status: "COMPLETED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 60, rating: 5 },
+    { id: "order-h10", type: "venda", grossAmount: 1200, status: "COMPLETED", clientId: "user-client-2", clientName: "Carla Souza", daysAgo: 75, rating: 4 },
+    { id: "order-h11", type: "compra", grossAmount: 300, status: "COMPLETED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 88, rating: 4 },
+    { id: "order-h12", type: "compra", grossAmount: 400, status: "CANCEL_ACCEPTED", clientId: "user-client-1", clientName: "Ana Cliente", daysAgo: 10 },
+    { id: "order-h13", type: "venda", grossAmount: 800, status: "EXPIRED", clientId: "user-client-2", clientName: "Carla Souza", daysAgo: 40 },
+  ];
+
+  return inputs.map((input) => {
+    const t = daysAgo(input.daysAgo);
+    const { feeAmount, netAmount } = feeSnapshot(input.grossAmount);
+    const hasCashier = input.status !== "EXPIRED";
+    return {
+      id: input.id,
+      publicId: nextPublicId(),
+      type: input.type,
+      asset: "USDT",
+      network: "TRC20",
+      fiatCurrency: "BRL",
+      paymentMethod: "PIX",
+      grossAmount: input.grossAmount,
+      quote: 5.42,
+      feePercent: 3,
+      feeAmount,
+      netAmount,
+      status: input.status,
+      clientId: input.clientId,
+      clientName: input.clientName,
+      cashierId: hasCashier ? "user-cashier-1" : undefined,
+      cashierName: hasCashier ? "Beto Caixeiro" : undefined,
+      cancelRequestedBy: input.status === "CANCEL_ACCEPTED" ? "cliente" : undefined,
+      cancelReason: input.status === "CANCEL_ACCEPTED" ? "Cliente desistiu da negociação." : undefined,
+      rating: input.rating,
+      createdAt: t,
+      updatedAt: t,
+    };
+  });
+}
+
 function seedOrders(): Order[] {
   const t = now();
   return [
@@ -140,6 +220,7 @@ function seedOrders(): Order[] {
       createdAt: t,
       updatedAt: t,
     },
+    ...seedHistoricalOrders(),
   ];
 }
 

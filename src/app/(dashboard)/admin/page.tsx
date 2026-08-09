@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import {
   AlertTriangleIcon,
   ArrowRightIcon,
+  BarChart3Icon,
   FileTextIcon,
   ListOrderedIcon,
   ShieldBanIcon,
@@ -49,6 +50,7 @@ export default function AdminPage() {
     { href: "/admin/audit-logs", label: "Logs de auditoria", description: "Consulta somente leitura", icon: FileTextIcon },
     { href: "/admin/blacklist", label: "Blacklist", description: "Gestão de contas bloqueadas", icon: ShieldBanIcon },
     { href: "/admin/disputes", label: "Disputas", description: "Casos atribuídos ao mediador", icon: AlertTriangleIcon },
+    { href: "/admin/reports", label: "Relatórios", description: "GMV, receita, lucro líquido e liquidez", icon: BarChart3Icon },
   ];
 
   return (

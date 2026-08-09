@@ -40,12 +40,6 @@ kanban-plugin: board
 
 ## Relatórios & Ganhos (Sprint -1, dados fake)
 
-- [ ] Especificação completa do Dashboard de Relatórios e Ganhos — 3 perfis (cliente, caixeiro, admin), decisões de arquitetura: tabela derivada `dashboard_metrics_daily` (não agregar direto no `financial_ledger`, que é INSERT-only), job assíncrono BullMQ, cache Redis (TTL curto) e rate limiting nos endpoints; endpoints propostos `GET /dashboard/client/:userId`, `/dashboard/cashier/:userId`, `/dashboard/admin/platform`, `/dashboard/export` #jose
-- [ ] Tela de relatórios do Cliente — histórico de ordens, volume negociado, ticket médio #jose
-- [ ] Tela de relatórios do Caixeiro — ganhos brutos/líquidos, ROI sobre caução, taxa de utilização da caução, taxa de conclusão #julia
-- [ ] Painel de relatórios do Admin — GMV, receita da plataforma, lucro líquido, liquidez em custódia, funil de conversão #julia
-- [ ] Filtros de período padrão (hoje, 7d, 30d, 90d, YTD, custom) reaproveitados nas 3 telas #jose
-- [ ] RBAC/isolamento de dados nos endpoints de dashboard — caixeiro só acessa os próprios dados, admin acessa todos; mesma checagem de participante usada em `/orders/[id]` #jose
 
 
 ## Integração com API real (Sprint 4)
@@ -132,6 +126,11 @@ kanban-plugin: board
 - [ ] Máscara de dados sensíveis por padrão (`MaskedValue`) — aplicada ao documento em `/admin/users`, revelar sempre registra evento no log de auditoria #jose
 - [ ] Indicação de MFA obrigatório (`MfaNotice`) — ao lado de cada ação crítica: aprovar cadastro, incluir na blacklist, resolver disputa #julia
 - [ ] Checklist de validação da Sprint -1 — dois gaps encontrados e corrigidos: estado `FROZEN_FOR_AUDIT` (congelar/liberar ordem em `/admin/orders`, semântica documentada em [[02 - Arquitetura Técnica]]) e trava anti-triangulação reforçada no momento da transação (seleção obrigatória de chave PIX em `/orders/new`, `Order.clientPixKeySnapshot`); registro completo em [[19 - Checklist de Validação Sprint -1]] #jose
+- [ ] Especificação completa do Dashboard de Relatórios e Ganhos — 3 perfis (cliente, caixeiro, admin), decisões de arquitetura: tabela derivada `dashboard_metrics_daily` (não agregar direto no `financial_ledger`, que é INSERT-only), job assíncrono BullMQ, cache Redis (TTL curto) e rate limiting nos endpoints; endpoints propostos `GET /dashboard/client/:userId`, `/dashboard/cashier/:userId`, `/dashboard/admin/platform`, `/dashboard/export`; registrado em [[20 - Relatórios e Ganhos]] #jose
+- [ ] Tela de relatórios do Cliente e do Caixeiro (`/reports`, rota única com abas por papel) — histórico de ordens, volume negociado, ticket médio; ganhos brutos/líquidos, ROI sobre caução, taxa de utilização da caução, taxa de conclusão #jose #julia
+- [ ] Painel de relatórios do Admin (`/admin/reports`) — GMV, receita da plataforma, lucro líquido, liquidez em custódia, funil de conversão #julia
+- [ ] Filtro de período padrão (`PeriodFilter`: hoje, 7d, 30d, 90d, YTD, custom) reaproveitado nas 3 telas #jose
+- [ ] Isolamento de dados nas 3 telas de relatório — cliente/caixeiro só veem as próprias ordens (`clientId`/`cashierId === user.id`, mesma checagem de `order-detail.tsx`), admin vê a plataforma inteira sem RBAC ainda (mesma ressalva já registrada em [[18 - Administração e Mediação]]) #jose
 
 
 
