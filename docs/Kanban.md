@@ -44,14 +44,45 @@ kanban-plugin: board
 
 ## Integração com API real (Sprint 4)
 
-- [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL`, tratamento padronizado de erro #jose
-- [ ] Header `Idempotency-Key` automático em toda chamada de escrita a endpoint financeiro (aceite de ordem, confirmações, criação de ordem) #julia
-- [ ] Autenticação real (JWT) — armazenamento de sessão, renovação via `/auth/refresh`, logout via `/auth/logout` #jose
-- [ ] Substituir todos os dados fake das telas acima por chamadas reais à API do backend (`marinsprosper-api`) #julia
-- [ ] Upload de mídia (comprovantes, documentos KYC) via Presigned URLs — upload direto do navegador para o storage #jose
-- [ ] WebSocket real para chat e atualização de status da ordem em tempo real (substitui o polling/fake do protótipo) #julia
-- [ ] Exibir saldo de caução sempre a partir da leitura real do backend (`/cashier/collateral`, espelho do smart contract) — nunca cachear como fonte de verdade #jose
-- [ ] Tratamento de estados de loading, erro e retry alinhado com a idempotência dos endpoints financeiros (retry seguro, sem duplicar ação) #julia
+Backend (`marinsprosper-api`, repositório separado) auditado em 2026-08-10 — chegou até o Sprint 3 (auth, ordens, custódia TRON, chat, idempotência; ledger sem rota HTTP ainda). Mapeamento completo endpoint↔tela, remapeamento da máquina de estados e lista do que fica bloqueado por falta de endpoint em [[21 - Integração com API Real]].
+
+### Fundação (bloqueia todo o resto)
+
+- [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL`, dinheiro tratado como string decimal ponta a ponta (backend nunca manda `number`), tratamento padronizado de erro #jose
+- [ ] Header `Idempotency-Key` automático (UUID v4 novo por ação do usuário, reusado em retry, não em nova ação) em toda chamada marcada ⚡ em [[21 - Integração com API Real]] #julia
+- [ ] Autenticação real — `POST /auth/login`/`register`/`refresh`/`logout` prontos no backend; remove o checkbox "entrando como caixeiro/admin" de `/login` (papel vem do JWT); `notifySessionExpired()` (`src/lib/session.ts`) já pronto pro interceptor de 401 chamar #jose
+- [ ] Remapeamento da máquina de estados — `OrderStatus` do front (11 estados incl. `AWAITING_*`) precisa colapsar pros 10 estados reais do backend; `OrderTimeline` aprende a tratar `AWAITING_*` como a mesma etapa vista por cada papel, não um estado à parte; ver tabela completa em [[21 - Integração com API Real]] #julia
+
+### Ordens & Ofertas
+
+- [ ] Criação de ordem — `POST /orders` + `POST /orders/:id/publish` (dois passos, backend separa `DRAFT`→`OPEN`; front hoje cria já `OPEN`) #jose
+- [ ] Aceite de ordem (`/offers`) — `POST /orders/:id/accept`, tratar 422 de caução insuficiente/limite excedido como erro específico, não genérico #julia
+- [ ] Mover seleção de chave PIX de `orders/new` pra uma etapa pós-aceite — `POST /orders/:id/pix`, registrada por quem *recebe* o BRL (mudança de fluxo, não só de endpoint); trava anti-triangulação passa a checar contra o documento do KYC de quem registra, não contra chave salva no perfil #jose
+- [ ] Ciclo de transferência/confirmação (`OrderActions`) — `client-transfer`, `cashier-confirm-receipt`, `cashier-transfer`, `client-confirm` #julia
+- [ ] Cancelamento — `cancel-request`/`cancel-response` (mútuo) e `cancel` (direto, antes do aceite) #jose
+
+### Carteira & Caução
+
+- [ ] Remodelar `/wallet` pra 2 saldos (livre/travado) + idade do espelho on-chain, em vez dos 7 baldes atuais (`available/reserved/blocked/underReview/usedForReimbursement/pendingWithdrawal/withdrawn`) #julia
+- [ ] Fluxo de depósito inverte de direção — caixeiro registra o próprio endereço TRON (`POST /cashier/collateral/deposit-address`), backend não gera nada; confirmação vem de webhook on-chain, front precisa *pollar* `GET /cashier/collateral` em vez do timer de 8s simulado #jose
+- [ ] Limite do caixeiro — `GET /cashier/limit`, substitui `computeCashierLimit` local por leitura direta #julia
+
+### Chat
+
+- [ ] Envio/histórico — `GET`/`POST /orders/:id/messages` (multipart pra anexo, sniff de bytes no backend) #jose
+- [ ] WebSocket (`Socket.IO`, namespace `/chat`) — só entrega em tempo real; envio continua sempre por POST; handshake leva JWT em `auth.token`, entrar na sala é `emitWithAck('entrar', { orderId })` #julia
+- [ ] URLs de anexo assinadas expiram em 5 min — nunca cachear entre navegações, sempre pedir de novo em `GET /orders/:id/messages` #jose
+
+### Bloqueado — sem endpoint no backend ainda (não mover pra cá até existir)
+
+- [ ] `/admin/*` inteiro (usuários, ordens consolidadas, audit-logs, blacklist, disputas) — nenhum endpoint de admin existe #jose
+- [ ] `/reports`, `/admin/reports` — ledger sem rota HTTP, sem de onde vir GMV/ganhos #julia
+- [ ] `/kyc`, `/kyc/status`, `/verify-email`, `/verify-phone`, `/cashier-apply` — sem endpoint #jose
+- [ ] Avaliação por estrelas pós-conclusão — sem endpoint de rating #julia
+- [ ] Disputas (`/orders/[id]` → abrir disputa, decisão do mediador) — só o estado `DISPUTED` existe na máquina, sem rota de abertura/evidência/decisão #jose
+- [ ] `FROZEN_FOR_AUDIT` — não existe no backend nem está planejado; decisão de produto pendente antes de virar trabalho de backend #julia
+- [ ] Saque de caução (`pendingWithdrawal`) e disponibilidade do caixeiro (`/wallet/availability`) — sem endpoint #jose
+- [ ] Enrollment de MFA (só verificação existe) #julia
 
 
 ## Testes, Performance & Deploy (Sprint 5)

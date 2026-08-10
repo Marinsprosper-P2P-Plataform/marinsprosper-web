@@ -32,6 +32,7 @@ Vault de documentação e gestão do projeto. Este documento é o ponto de entra
 18. [[18 - Administração e Mediação]] — painel admin, usuários, ordens consolidadas, log de auditoria, blacklist, disputas, máscara de dados, MFA
 19. [[19 - Checklist de Validação Sprint -1]] — validação formal item a item, com os gaps encontrados (`FROZEN_FOR_AUDIT`, anti-triangulação na transação) e como foram corrigidos
 20. [[20 - Relatórios e Ganhos]] — dashboards de cliente/caixeiro/admin, filtro de período reaproveitável, gráficos com Recharts, e a arquitetura proposta pro backend real (tabela derivada, BullMQ, cache)
+21. [[21 - Integração com API Real]] — contrato real do backend (`marinsprosper-api`, Sprint 3 concluído), remapeamento da máquina de estados, endpoints prontos vs. bloqueados por tela, e o que precisa ser decidido/construído no backend antes do front avançar
 
 ## Como usar este vault
 
