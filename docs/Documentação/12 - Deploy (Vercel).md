@@ -24,7 +24,7 @@ O Vercel se conecta ao GitHub via um **GitHub App**, que precisa ser autorizado 
 2. `Add New` → `Project` → autorizar o GitHub App na organização (redireciona pro GitHub, ou direto em `github.com/organizations/Marinsprosper-P2P-Plataform/settings/installations`)
 3. Escopo recomendado: `Only select repositories` → adicionar só `marinsprosper-web`
 4. Importar o repositório, confirmar Framework Preset = Next.js, Root Directory = `.`
-5. Configurar `NEXT_PUBLIC_API_URL` e `NEXT_PUBLIC_WS_URL` (ver [.env.example](../../.env.example)) — placeholder até o backend existir
+5. Configurar `NEXT_PUBLIC_API_URL` e `NEXT_PUBLIC_WS_URL` (ver [.env.example](../../.env.example)) — apontam pro ambiente de teste do backend numa VM própria (`https://api.163-176-220-125.sslip.io`, não é produção); pedir pro time de backend acrescentar o domínio do Vercel em `CORS_ORIGINS` antes do primeiro deploy, ver [[21 - Integração com API Real]] §0
 6. Deploy
 
 ## Depois que o deploy existir

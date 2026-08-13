@@ -42,45 +42,62 @@ kanban-plugin: board
 
 ## Integração com API real (Sprint 4)
 
-Backend (`marinsprosper-api`, repositório separado) auditado em 2026-08-10 — chegou até o Sprint 3 (auth, ordens, custódia TRON, chat, idempotência; ledger sem rota HTTP ainda). Mapeamento completo endpoint↔tela, remapeamento da máquina de estados e lista do que fica bloqueado por falta de endpoint em [[21 - Integração com API Real]].
+Backend (`marinsprosper-api`, repositório separado: <https://github.com/Marinsprosper-P2P-Plataform/marinsprosper-api>) reauditado em 2026-08-13 (auditoria anterior 08-10) — avançou bastante: além de auth/ordens/custódia/chat/idempotência do levantamento anterior, agora também KYC completo, MFA com enrollment, avaliações, disputas/mediação e todo o painel de admin (usuários, ordens, audit-logs, blacklist). Só o ledger continua sem rota HTTP. Mapeamento completo endpoint↔tela, remapeamento da máquina de estados e lista do que ainda fica bloqueado em [[21 - Integração com API Real]].
+
+**Front e backend são repositórios e máquinas separados, de propósito** — não existe backend em `localhost`. O backend roda numa VM própria desde o primeiro dia; o ambiente de teste atual (não é produção) fica em `https://api.163-176-220-125.sslip.io` (Swagger em `/docs`), com contas de teste prontas (`cliente@teste.local`, `cashier@teste.local`, `mediador@teste.local` etc., senha `teste-marinsprosper-2026` em todas — ver [[21 - Integração com API Real]] §0). `.env.example` já aponta pra lá.
 
 ### Fundação (bloqueia todo o resto)
 
-- [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL`, dinheiro tratado como string decimal ponta a ponta (backend nunca manda `number`), tratamento padronizado de erro #jose
-- [ ] Header `Idempotency-Key` automático (UUID v4 novo por ação do usuário, reusado em retry, não em nova ação) em toda chamada marcada ⚡ em [[21 - Integração com API Real]] #julia
+- [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL` (ambiente de teste na VM, nunca `localhost`), dinheiro tratado como string decimal ponta a ponta (backend nunca manda `number`), tratamento padronizado de erro (404 = "não é sua", nunca 403; 409 = recarregar e reavaliar) #jose
+- [ ] Pedir ao time de backend pra acrescentar a origem do front (`localhost:3000` em dev, domínio do Vercel depois) em `CORS_ORIGINS` — sem isso o navegador bloqueia toda chamada antes de sair, sem erro de rede útil no console #jose
+- [ ] Header `Idempotency-Key` automático (UUID v4 novo por ação do usuário, reusado em retry, não em nova ação, formato `[A-Za-z0-9._~-]{16,128}`) em toda chamada marcada ⚡ em [[21 - Integração com API Real]] #julia
 - [ ] Autenticação real — `POST /auth/login`/`register`/`refresh`/`logout` prontos no backend; remove o checkbox "entrando como caixeiro/admin" de `/login` (papel vem do JWT); `notifySessionExpired()` (`src/lib/session.ts`) já pronto pro interceptor de 401 chamar #jose
 - [ ] Remapeamento da máquina de estados — `OrderStatus` do front (11 estados incl. `AWAITING_*`) precisa colapsar pros 10 estados reais do backend; `OrderTimeline` aprende a tratar `AWAITING_*` como a mesma etapa vista por cada papel, não um estado à parte; ver tabela completa em [[21 - Integração com API Real]] #julia
 
 ### Ordens & Ofertas
 
-- [ ] Criação de ordem — `POST /orders` + `POST /orders/:id/publish` (dois passos, backend separa `DRAFT`→`OPEN`; front hoje cria já `OPEN`) #jose
+- [ ] Criação de ordem — `POST /orders` numa chamada só (`publish: true/false` é campo do corpo, **não** um endpoint `/publish` separado — correção da auditoria anterior); `Order.type` (compra/venda) vira `side` (`CLIENT_BUYS_ASSET`/`CLIENT_SELLS_ASSET`); `clientTronAddress` passa a ser campo obrigatório quando o cliente compra #jose
 - [ ] Aceite de ordem (`/offers`) — `POST /orders/:id/accept`, tratar 422 de caução insuficiente/limite excedido como erro específico, não genérico #julia
-- [ ] Mover seleção de chave PIX de `orders/new` pra uma etapa pós-aceite — `POST /orders/:id/pix`, registrada por quem *recebe* o BRL (mudança de fluxo, não só de endpoint); trava anti-triangulação passa a checar contra o documento do KYC de quem registra, não contra chave salva no perfil #jose
-- [ ] Ciclo de transferência/confirmação (`OrderActions`) — `client-transfer`, `cashier-confirm-receipt`, `cashier-transfer`, `client-confirm` #julia
-- [ ] Cancelamento — `cancel-request`/`cancel-response` (mútuo) e `cancel` (direto, antes do aceite) #jose
+- [ ] Mover seleção de chave PIX de `orders/new` pra uma etapa pós-aceite — `POST /orders/:id/pix`, registrada por quem *recebe* o BRL (mudança de fluxo, não só de endpoint); trava anti-triangulação passa a checar contra o documento do KYC de quem registra, não contra chave salva no perfil; `Order.cashierPixKeySnapshot` (ver [[14 - Ofertas e Ordens]]) passa a nascer nesse passo, não no aceite #jose
+- [ ] Ciclo de transferência/confirmação (`OrderActions`) — `client-transfer`, `cashier-confirm-receipt` (ponto de não retorno pro cancelamento mútuo), `cashier-transfer`, `client-confirm` #julia
+- [ ] Cancelamento — `cancel-request`/`cancel-response` (mútuo, bloqueado a partir de `RECEIPT_CONFIRMED`) e `cancel` (direto, antes do aceite) #jose
+- [ ] Avaliação por estrelas — `POST /orders/:id/rating` + `GET /users/:id/ratings` (aposenta `getUserReputation` local); quem pediu cancelamento não avalia, `EXPIRED` não avalia #julia
+- [ ] Disputas — sai de `/admin/disputes` (papel errado: mediação exige `MEDIATOR`, não `ADMIN`) e passa a chamar `POST /orders/:id/dispute`, `GET /disputes`, `GET /disputes/:id`, `POST /disputes/:id/evidence`/`messages`/`decision`; decisão passa a exigir **dois mediadores diferentes** (recomendação + aprovação), fluxo assíncrono, não uma tela só #jose
 
 ### Carteira & Caução
 
-- [ ] Remodelar `/wallet` pra 2 saldos (livre/travado) + idade do espelho on-chain, em vez dos 7 baldes atuais (`available/reserved/blocked/underReview/usedForReimbursement/pendingWithdrawal/withdrawn`) #julia
+- [ ] Remodelar `/wallet` pra 2 saldos (livre/travado) + `mirrorAgeSeconds` (idade do espelho on-chain) + `pendingMovements`, em vez dos 7 baldes atuais (`available/reserved/blocked/underReview/usedForReimbursement/pendingWithdrawal/withdrawn`) #julia
 - [ ] Fluxo de depósito inverte de direção — caixeiro registra o próprio endereço TRON (`POST /cashier/collateral/deposit-address`), backend não gera nada; confirmação vem de webhook on-chain, front precisa *pollar* `GET /cashier/collateral` em vez do timer de 8s simulado #jose
 - [ ] Limite do caixeiro — `GET /cashier/limit`, substitui `computeCashierLimit` local por leitura direta #julia
+- [ ] Botão "atualizar saldo" (`POST /cashier/collateral/sync`) — pra quando o espelho estiver velho e o aceite de ordem começar a recusar por leitura vencida #jose
+
+### KYC & MFA
+
+- [ ] Fluxo de KYC — `POST /kyc`, `GET /kyc/me`, `POST /kyc/documents` (via `POST /uploads` primeiro), `POST /kyc/submit` (exige ID_FRONT + SELFIE); `/kyc` e `/kyc/status` do protótipo saem do mock #julia
+- [ ] Enrollment de MFA — `GET /auth/mfa`, `POST /auth/mfa/setup` (QR do `otpauthUri`), `POST /auth/mfa/activate` (mostrar os códigos de recuperação uma única vez — não há rota que os reexiba), `DELETE /auth/mfa`; sem tela no protótipo ainda, provável destino é `/profile` #jose
+- [ ] Segunda etapa do login com MFA — `POST /auth/mfa/verify` e `/auth/mfa/recovery`, tratando as duas respostas possíveis de `POST /auth/login` (`{ accessToken, ... }` vs. `{ mfaRequired: true, mfaToken }`) #julia
 
 ### Chat
 
 - [ ] Envio/histórico — `GET`/`POST /orders/:id/messages` (multipart pra anexo, sniff de bytes no backend) #jose
-- [ ] WebSocket (`Socket.IO`, namespace `/chat`) — só entrega em tempo real; envio continua sempre por POST; handshake leva JWT em `auth.token`, entrar na sala é `emitWithAck('entrar', { orderId })` #julia
+- [ ] WebSocket (`Socket.IO`, namespace `/chat`) — só entrega em tempo real; envio continua sempre por POST; handshake leva JWT em `auth.token`, entrar na sala é `emitWithAck('entrar', orderId)` #julia
 - [ ] URLs de anexo assinadas expiram em 5 min — nunca cachear entre navegações, sempre pedir de novo em `GET /orders/:id/messages` #jose
+
+### Admin
+
+- [ ] Usuários — `GET /admin/users?status=PENDING_KYC` + `POST /admin/users/:id/approve`; aprovação passa a exigir `reason` (campo novo na tela, front hoje aprova sem motivo) #julia
+- [ ] Ordens consolidadas — `GET /admin/orders` #jose
+- [ ] Audit logs — `GET /admin/audit-logs`, filtrável por ação/entidade/ator/período #julia
+- [ ] Blacklist — `GET`/`POST /admin/blacklist`, 5 tipos de alvo (`DOCUMENT`/`EMAIL`/`USER`/`TRON_ADDRESS`/`PIX_KEY`); erro de bloqueio é sempre genérico, front não deve tentar adivinhar qual alvo casou #jose
+- [ ] Fila de KYC — `GET /admin/kyc`, `GET /admin/kyc/:id`, `POST /admin/kyc/:id/claim`, `POST /admin/kyc/:id/review` — sem tela no protótipo ainda #julia
+- [ ] Moderação de avaliação — `POST /ratings/:id/moderation` — sem tela no protótipo ainda #jose
 
 ### Bloqueado — sem endpoint no backend ainda (não mover pra cá até existir)
 
-- [ ] `/admin/*` inteiro (usuários, ordens consolidadas, audit-logs, blacklist, disputas) — nenhum endpoint de admin existe #jose
-- [ ] `/reports`, `/admin/reports` — ledger sem rota HTTP, sem de onde vir GMV/ganhos #julia
-- [ ] `/kyc`, `/kyc/status`, `/verify-email`, `/verify-phone`, `/cashier-apply` — sem endpoint #jose
-- [ ] Avaliação por estrelas pós-conclusão — sem endpoint de rating #julia
-- [ ] Disputas (`/orders/[id]` → abrir disputa, decisão do mediador) — só o estado `DISPUTED` existe na máquina, sem rota de abertura/evidência/decisão #jose
+- [ ] `/reports`, `/admin/reports` — ledger sem rota HTTP, sem de onde vir GMV/ganhos. Único bloqueio "grande" que restou depois da reauditoria de 08-13 #julia
+- [ ] `/verify-email`, `/verify-phone`, `/cashier-apply` — sem endpoint #jose
 - [ ] `FROZEN_FOR_AUDIT` — não existe no backend nem está planejado; decisão de produto pendente antes de virar trabalho de backend #julia
 - [ ] Saque de caução (`pendingWithdrawal`) e disponibilidade do caixeiro (`/wallet/availability`) — sem endpoint #jose
-- [ ] Enrollment de MFA (só verificação existe) #julia
 
 
 ## Testes, Performance & Deploy (Sprint 5)
