@@ -60,6 +60,15 @@ export function OrderDetail({ orderId }: { orderId: string }) {
   const counterpartyName = isClient ? order.cashierName : order.clientName;
   const counterpartyReputation = counterpartyId ? getUserReputation(orders, counterpartyId) : null;
 
+  // Pra quem o PIX desta ordem vai: em `compra`, o cliente paga o
+  // caixeiro (destino = `cashierPixKeySnapshot`); em `venda`, o
+  // caixeiro paga o cliente (destino = `clientPixKeySnapshot`). Sem
+  // isso, quem transfere não saberia pra qual conta enviar.
+  const pixHolderName = order.type === "compra" ? order.cashierName : order.clientName;
+  const pixSnapshot = order.type === "compra" ? order.cashierPixKeySnapshot : order.clientPixKeySnapshot;
+  const pixPending = order.status === "OPEN";
+  const pixMissing = !pixPending && !!pixHolderName && !pixSnapshot;
+
   return (
     <div className="flex flex-col gap-6 p-4">
       <Link
@@ -94,6 +103,33 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         status={order.status}
         lastMainlineStatus={order.previousMainlineStatus}
       />
+
+      {(pixPending || pixMissing || pixSnapshot) && (
+        <div className="border-border flex flex-col gap-1 rounded-lg border p-4">
+          <h2 className="text-sm font-medium">Dados PIX para transferência</h2>
+          {pixPending && (
+            <p className="text-muted-foreground text-sm">
+              Aguardando um caixeiro aceitar a ordem para exibir os dados de transferência.
+            </p>
+          )}
+          {pixMissing && (
+            <p className="text-muted-foreground text-sm">
+              {pixHolderName} ainda não tem nenhuma chave PIX cadastrada.
+            </p>
+          )}
+          {pixSnapshot && (
+            <div className="text-sm">
+              <p>
+                {order.type === "compra" ? "Transferir para" : "Cliente vai receber em"}:{" "}
+                <span className="font-medium">{pixHolderName}</span>
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {pixSnapshot.bank} · {pixSnapshot.key}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Registro persistente do comprovante — continua acessível depois
        * que a ordem sai do passo "Confirmação do caixeiro" em

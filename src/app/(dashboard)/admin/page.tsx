@@ -60,7 +60,7 @@ export default function AdminPage() {
         <p className="text-muted-foreground text-sm">Resumo da operação e atalhos pras telas de gestão</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map((card) => (
           <div key={card.label} className="border-border rounded-lg border p-4">
             <p className="text-2xl font-semibold">{card.value}</p>

@@ -200,4 +200,17 @@ export interface Order {
     key: string;
     bank: string;
   };
+  /**
+   * Chave PIX do caixeiro envolvida nesta ordem — mesmo princípio de
+   * `clientPixKeySnapshot`, snapshot no momento do aceite (não a chave
+   * atual em `/profile`, que pode mudar depois). Em `compra`, é pra onde
+   * o cliente efetivamente transfere o BRL — sem isso, o cliente nunca
+   * saberia qual conta usar pra pagar. Pode ficar ausente se o caixeiro
+   * não tinha nenhuma chave cadastrada no momento do aceite.
+   */
+  cashierPixKeySnapshot?: {
+    type: string;
+    key: string;
+    bank: string;
+  };
 }

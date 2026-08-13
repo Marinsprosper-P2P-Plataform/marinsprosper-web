@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { OrderRulesDialog } from "./order-rules-dialog";
 import { quoteOrder, type OrderQuote } from "@/lib/mock/pricing";
 import { useMockOrders } from "@/lib/mock/orders";
@@ -151,21 +152,40 @@ export default function NewOrderPage() {
             name="type"
             control={control}
             render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={(value) => {
-                  field.onChange(value);
-                  invalidateQuote();
-                }}
-              >
-                <SelectTrigger id="type" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="compra">Comprar USDT</SelectItem>
-                  <SelectItem value="venda">Vender USDT</SelectItem>
-                </SelectContent>
-              </Select>
+              <div id="type" className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  aria-pressed={field.value === "compra"}
+                  onClick={() => {
+                    field.onChange("compra");
+                    invalidateQuote();
+                  }}
+                  className={cn(
+                    "rounded-lg border p-2 text-sm font-medium transition-colors",
+                    field.value === "compra"
+                      ? "bg-status-dispute text-status-dispute-foreground border-transparent"
+                      : "border-border hover:bg-accent",
+                  )}
+                >
+                  Comprar USDT
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={field.value === "venda"}
+                  onClick={() => {
+                    field.onChange("venda");
+                    invalidateQuote();
+                  }}
+                  className={cn(
+                    "rounded-lg border p-2 text-sm font-medium transition-colors",
+                    field.value === "venda"
+                      ? "bg-status-completed text-status-completed-foreground border-transparent"
+                      : "border-border hover:bg-accent",
+                  )}
+                >
+                  Vender USDT
+                </button>
+              </div>
             )}
           />
         </div>

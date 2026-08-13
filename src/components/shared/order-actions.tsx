@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PaymentCountdown } from "@/components/shared/payment-countdown";
 import { ProofLink } from "@/components/shared/proof-link";
 import { useMockOrders } from "@/lib/mock/orders";
+import { useMockPixKeys } from "@/lib/mock/pix-keys";
 import { useMockSession } from "@/lib/mock/session";
 import type { Order } from "@/types/order";
 
@@ -59,11 +60,6 @@ export function OrderActions({ order }: { order: Order }) {
             deadline={order.paymentDeadline}
             onExpire={() => expireOrder(order.id)}
           />
-        )}
-        {order.clientPixKeySnapshot && (
-          <p className="text-muted-foreground text-xs">
-            Chave PIX declarada: {order.clientPixKeySnapshot.key} ({order.clientPixKeySnapshot.bank})
-          </p>
         )}
         {isClient ? (
           <ClientTransferControl orderId={order.id} onSubmit={markClientTransferred} />
@@ -179,6 +175,7 @@ function ActionCard({ title, children }: { title: string; children: React.ReactN
 function AcceptControl({ order }: { order: Order }) {
   const { user } = useMockSession();
   const { acceptOrder } = useMockOrders();
+  const { pixKeys } = useMockPixKeys();
   const [accepting, setAccepting] = useState(false);
   const availableLimit = user.cashierAvailableLimit;
   const exceedsLimit = order.grossAmount > availableLimit;
@@ -191,7 +188,13 @@ function AcceptControl({ order }: { order: Order }) {
     }
     setAccepting(true);
     await new Promise((resolve) => setTimeout(resolve, 400));
-    acceptOrder(order.id, user.id, user.name);
+    const cashierPixKey = pixKeys.find((key) => key.userId === user.id);
+    acceptOrder(
+      order.id,
+      user.id,
+      user.name,
+      cashierPixKey && { type: cashierPixKey.type, key: cashierPixKey.key, bank: cashierPixKey.bank },
+    );
     toast.success("Ordem aceita — caução reservada no contrato");
     setAccepting(false);
   }

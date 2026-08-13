@@ -12,6 +12,7 @@ import type { PeriodPreset, PeriodRange } from "@/lib/mock/dashboard";
 
 const PRESET_LABELS: Record<PeriodPreset, string> = {
   today: "Hoje",
+  yesterday: "Ontem",
   "7d": "Últimos 7 dias",
   "30d": "Últimos 30 dias",
   "90d": "Últimos 90 dias",

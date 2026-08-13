@@ -172,6 +172,8 @@ function seedOrders(): Order[] {
       cashierId: "user-cashier-1",
       cashierName: "Beto Caixeiro",
       clientProofName: "comprovante-pix.pdf",
+      clientPixKeySnapshot: { type: "cpf", key: "123.456.789-00", bank: "Nubank" },
+      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú" },
       createdAt: t,
       updatedAt: t,
     },
@@ -195,6 +197,8 @@ function seedOrders(): Order[] {
       cashierName: "Beto Caixeiro",
       clientProofName: "comprovante-pix.pdf",
       txid: "0x3a1f...c9e2",
+      clientPixKeySnapshot: { type: "email", key: "ana.cliente@email.com", bank: "Nubank" },
+      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú" },
       createdAt: t,
       updatedAt: t,
     },
@@ -217,6 +221,8 @@ function seedOrders(): Order[] {
       cashierId: "user-cashier-1",
       cashierName: "Beto Caixeiro",
       disputeReason: "Cliente diz ter transferido, caixeiro não confirma o recebimento.",
+      clientPixKeySnapshot: { type: "cpf", key: "123.456.789-00", bank: "Nubank" },
+      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú" },
       createdAt: t,
       updatedAt: t,
     },
@@ -226,7 +232,13 @@ function seedOrders(): Order[] {
 
 type OrdersAction =
   | { type: "CREATE"; order: Order }
-  | { type: "ACCEPT"; orderId: string; cashierId: string; cashierName: string }
+  | {
+      type: "ACCEPT";
+      orderId: string;
+      cashierId: string;
+      cashierName: string;
+      cashierPixKeySnapshot?: { type: string; key: string; bank: string };
+    }
   | { type: "CLIENT_TRANSFER"; orderId: string; proofName: string; proofUrl: string; proofMimeType: string }
   | { type: "CASHIER_CONFIRM_RECEIPT"; orderId: string }
   | { type: "CASHIER_TRANSFER"; orderId: string; txid: string }
@@ -278,6 +290,7 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
         status: "AWAITING_CLIENT_TRANSFER",
         cashierId: action.cashierId,
         cashierName: action.cashierName,
+        cashierPixKeySnapshot: action.cashierPixKeySnapshot,
         paymentDeadline: new Date(Date.now() + PAYMENT_SLA_MS).toISOString(),
       });
 
@@ -375,7 +388,12 @@ interface MockOrdersContextValue {
     clientName: string;
     clientPixKeySnapshot: { type: string; key: string; bank: string };
   }) => Order;
-  acceptOrder: (orderId: string, cashierId: string, cashierName: string) => void;
+  acceptOrder: (
+    orderId: string,
+    cashierId: string,
+    cashierName: string,
+    cashierPixKeySnapshot?: { type: string; key: string; bank: string },
+  ) => void;
   markClientTransferred: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
   confirmCashierReceipt: (orderId: string) => void;
   markCashierTransferred: (orderId: string, txid: string) => void;
@@ -422,8 +440,12 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const acceptOrder = useCallback(
-    (orderId: string, cashierId: string, cashierName: string) =>
-      dispatch({ type: "ACCEPT", orderId, cashierId, cashierName }),
+    (
+      orderId: string,
+      cashierId: string,
+      cashierName: string,
+      cashierPixKeySnapshot?: { type: string; key: string; bank: string },
+    ) => dispatch({ type: "ACCEPT", orderId, cashierId, cashierName, cashierPixKeySnapshot }),
     [],
   );
   const markClientTransferred = useCallback(

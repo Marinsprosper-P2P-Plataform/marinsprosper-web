@@ -99,7 +99,7 @@ export default function WalletPage() {
 
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Saldos</h2>
-        <dl className="border-border grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border p-4 sm:grid-cols-3">
+        <dl className="border-border grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border p-4 sm:grid-cols-4">
           {balances.map((balance) => (
             <div key={balance.label}>
               <dt className="text-muted-foreground text-xs">{balance.label}</dt>

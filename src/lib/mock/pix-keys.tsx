@@ -33,6 +33,33 @@ function seedPixKeys(): PixKey[] {
       description: "Conta principal",
       createdAt: new Date().toISOString(),
     },
+    {
+      id: "pix-2",
+      userId: "user-client-1",
+      type: "email",
+      key: "ana.cliente@email.com",
+      bank: "Nubank",
+      description: "E-mail",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "pix-3",
+      userId: "user-cashier-1",
+      type: "cpf",
+      key: "987.654.321-00",
+      bank: "Itaú",
+      description: "Conta principal",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "pix-4",
+      userId: "user-cashier-1",
+      type: "telefone",
+      key: "(41) 99876-5432",
+      bank: "Itaú",
+      description: "Telefone",
+      createdAt: new Date().toISOString(),
+    },
   ];
 }
 
