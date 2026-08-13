@@ -18,6 +18,19 @@ export interface PendingDeposit {
   confirmAt: string;
 }
 
+export interface PendingWithdrawal {
+  id: string;
+  amount: number;
+  /** Endereço TRC20 de destino informado pelo caixeiro — texto livre no
+   * protótipo, sem validação de formato real (mesma simplificação do
+   * endereço de depósito fake). */
+  destinationAddress: string;
+  /** Quando o processamento simulado libera o saque — mesmo padrão de
+   * `PendingDeposit.confirmAt`, só que aqui o valor sai de
+   * `pendingWithdrawal` pra `withdrawn` em vez de entrar em `available`. */
+  confirmAt: string;
+}
+
 export interface CollateralAccount {
   userId: string;
   /** Endereço TRC20 fake — em produção viria de
@@ -31,6 +44,7 @@ export interface CollateralAccount {
   pendingWithdrawal: number;
   withdrawn: number;
   pendingDeposits: PendingDeposit[];
+  pendingWithdrawals: PendingWithdrawal[];
 }
 
 /** `limite_bruto = caução_confirmada × fator_de_exposição` ([[03 - Modelo
@@ -41,6 +55,11 @@ export const EXPOSURE_FACTOR = 0.5;
 /** Simula o tempo de confirmação on-chain antes do depósito sair de
  * "em análise" e virar saldo disponível de verdade. */
 const DEPOSIT_CONFIRMATION_MS = 8000;
+
+/** Simula o tempo de processamento (validação manual + broadcast
+ * on-chain, no mundo real) antes de um saque sair de "em processamento"
+ * e virar `withdrawn` de verdade. */
+const WITHDRAWAL_PROCESSING_MS = 8000;
 
 function fakeDepositAddress(userId: string) {
   const seed = userId.replace(/[^a-zA-Z0-9]/g, "").padEnd(30, "0").slice(0, 30);
@@ -60,6 +79,7 @@ function seedAccounts(): CollateralAccount[] {
       pendingWithdrawal: 0,
       withdrawn: 1200,
       pendingDeposits: [],
+      pendingWithdrawals: [],
     },
     {
       userId: "user-cashier-1",
@@ -72,6 +92,17 @@ function seedAccounts(): CollateralAccount[] {
       pendingWithdrawal: 300,
       withdrawn: 0,
       pendingDeposits: [],
+      // Um saque já "em processamento" no seed, pra `/wallet` ter algo
+      // pra mostrar na lista sem precisar solicitar um novo primeiro —
+      // mesmo espírito de `order-h*` em `orders.tsx`.
+      pendingWithdrawals: [
+        {
+          id: "withdrawal-seed-1",
+          amount: 300,
+          destinationAddress: "TEXTERNALWALLETBETO000000000000",
+          confirmAt: new Date(Date.now() + WITHDRAWAL_PROCESSING_MS).toISOString(),
+        },
+      ],
     },
   ];
 }
@@ -91,7 +122,9 @@ export function computeCashierLimit(account: CollateralAccount) {
 
 type CollateralAction =
   | { type: "INITIATE_DEPOSIT"; userId: string; deposit: PendingDeposit }
-  | { type: "CONFIRM_DEPOSIT"; userId: string; depositId: string };
+  | { type: "CONFIRM_DEPOSIT"; userId: string; depositId: string }
+  | { type: "REQUEST_WITHDRAWAL"; userId: string; withdrawal: PendingWithdrawal }
+  | { type: "CONFIRM_WITHDRAWAL"; userId: string; withdrawalId: string };
 
 function collateralReducer(state: CollateralAccount[], action: CollateralAction): CollateralAccount[] {
   return state.map((account) => {
@@ -116,6 +149,30 @@ function collateralReducer(state: CollateralAccount[], action: CollateralAction)
         };
       }
 
+      case "REQUEST_WITHDRAWAL":
+        // Guarda contra saque maior que o disponível — mesma checagem já
+        // feita na UI (`WithdrawDialog`), repetida aqui como defesa em
+        // profundidade (mesmo princípio da trava anti-triangulação em
+        // `orders.tsx`).
+        if (action.withdrawal.amount > account.available) return account;
+        return {
+          ...account,
+          available: account.available - action.withdrawal.amount,
+          pendingWithdrawal: account.pendingWithdrawal + action.withdrawal.amount,
+          pendingWithdrawals: [...account.pendingWithdrawals, action.withdrawal],
+        };
+
+      case "CONFIRM_WITHDRAWAL": {
+        const withdrawal = account.pendingWithdrawals.find((item) => item.id === action.withdrawalId);
+        if (!withdrawal) return account; // já confirmado — idempotente
+        return {
+          ...account,
+          pendingWithdrawal: account.pendingWithdrawal - withdrawal.amount,
+          withdrawn: account.withdrawn + withdrawal.amount,
+          pendingWithdrawals: account.pendingWithdrawals.filter((item) => item.id !== action.withdrawalId),
+        };
+      }
+
       default:
         return account;
     }
@@ -127,6 +184,8 @@ interface MockCollateralContextValue {
   getAccount: (userId: string) => CollateralAccount | undefined;
   initiateDeposit: (userId: string, amount: number) => void;
   confirmDeposit: (userId: string, depositId: string) => void;
+  requestWithdrawal: (userId: string, amount: number, destinationAddress: string) => void;
+  confirmWithdrawal: (userId: string, withdrawalId: string) => void;
 }
 
 const MockCollateralContext = createContext<MockCollateralContextValue | null>(null);
@@ -155,8 +214,27 @@ export function MockCollateralProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "CONFIRM_DEPOSIT", userId, depositId });
   }, []);
 
+  const requestWithdrawal = useCallback((userId: string, amount: number, destinationAddress: string) => {
+    dispatch({
+      type: "REQUEST_WITHDRAWAL",
+      userId,
+      withdrawal: {
+        id: `withdrawal-${crypto.randomUUID()}`,
+        amount,
+        destinationAddress,
+        confirmAt: new Date(Date.now() + WITHDRAWAL_PROCESSING_MS).toISOString(),
+      },
+    });
+  }, []);
+
+  const confirmWithdrawal = useCallback((userId: string, withdrawalId: string) => {
+    dispatch({ type: "CONFIRM_WITHDRAWAL", userId, withdrawalId });
+  }, []);
+
   return (
-    <MockCollateralContext.Provider value={{ accounts, getAccount, initiateDeposit, confirmDeposit }}>
+    <MockCollateralContext.Provider
+      value={{ accounts, getAccount, initiateDeposit, confirmDeposit, requestWithdrawal, confirmWithdrawal }}
+    >
       {children}
     </MockCollateralContext.Provider>
   );

@@ -36,7 +36,7 @@ Corrigido: `/orders/new` agora exige selecionar uma chave PIX cadastrada, com re
 
 Mas a auditoria encontrou duas pendências não citadas, ligadas ao item 3:
 - **Vínculo ordem↔chave PIX** — não existia (é o que o item 3 corrigiu). Agora modelado via `Order.clientPixKeySnapshot`.
-- **Saque de caução** — `CollateralAccount.pendingWithdrawal` existe no modelo ([[17 - Carteira e Caução]]) mas nenhum fluxo o alimenta; só depósito foi implementado. Fica registrado como pendência aberta, não bloqueante pro schema atual (o campo já existe, só falta a tela).
+- **Saque de caução** — `CollateralAccount.pendingWithdrawal` existia no modelo ([[17 - Carteira e Caução]]) mas nenhum fluxo o alimentava; só depósito estava implementado. **Resolvido**: fluxo completo de saque (`WithdrawDialog`, `PendingWithdrawal`, estado de espera "em processamento") implementado em `/wallet` — ver [[17 - Carteira e Caução]], seção "Fluxo de saque de caução".
 
 ## Resumo
 
@@ -46,4 +46,4 @@ Mas a auditoria encontrou duas pendências não citadas, ligadas ao item 3:
 | 2 | Máquina de estados sem gaps | 🔴→✅ Gap encontrado e corrigido (`FROZEN_FOR_AUDIT`) |
 | 3 | UX de anti-triangulação numa transação | 🔴→✅ Gap encontrado e corrigido (seleção de chave PIX na ordem) |
 | 4 | Feedback de pessoas reais | ❓ Não verificável por código — responder fora desta auditoria |
-| 5 | Decisões de UX pendentes que travam schema | ⚠️ Exemplos citados OK; achada pendência de saque de caução (registrada, não implementada) |
+| 5 | Decisões de UX pendentes que travam schema | 🔴→✅ Exemplos citados OK; achada pendência de saque de caução, implementada em seguida |

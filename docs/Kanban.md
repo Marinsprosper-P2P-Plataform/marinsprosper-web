@@ -32,8 +32,6 @@ kanban-plugin: board
 
 ## Carteira & Caução — visão do Caixeiro (Sprint -1, dados fake)
 
-- [ ] Fluxo de saque de caução — `CollateralAccount.pendingWithdrawal` existe no modelo (`src/lib/mock/collateral.tsx`) mas nenhuma tela o alimenta ainda; só depósito foi implementado. Achado no checklist de validação da Sprint -1, ver [[19 - Checklist de Validação Sprint -1]] #jose
-
 
 ## Administração & Mediação (Sprint -1, dados fake)
 
@@ -147,6 +145,7 @@ Backend (`marinsprosper-api`, repositório separado) auditado em 2026-08-10 — 
 - [ ] Tela de carteira (`/wallet`) — sete saldos separados (`src/lib/mock/collateral.tsx`), nunca um saldo único; limite bruto/disponível derivado via `computeCashierLimit`, nunca calculado na tela; ver [[17 - Carteira e Caução]] #jose
 - [ ] Fluxo de depósito — endereço TRC20 fake + estado de espera "aguardando confirmação on-chain" (8s simulados) antes do saldo sair de `underReview` pra `available` #jose
 - [ ] Tela de disponibilidade do caixeiro (`/wallet/availability`) — online/offline (`Switch` novo em `components/ui`), dias, horário, métodos aceitos #julia
+- [ ] Fluxo de saque de caução — `PendingWithdrawal` (`src/lib/mock/collateral.tsx`), botão "Solicitar saque" em `/wallet`, estado de espera "em processamento" (8s simulados) antes do saldo sair de `pendingWithdrawal` pra `withdrawn`, evento registrado no log de auditoria; achado no checklist de validação da Sprint -1, ver [[17 - Carteira e Caução]] #jose
 - [ ] Painel administrativo — home (`/admin`) com contadores reais (usuários, ordens por categoria) e atalhos pras outras telas #julia
 - [ ] Listagem e busca de usuários (`/admin/users`, `src/lib/mock/admin-users.tsx`) com ação de aprovar cadastro — aprovação já registra evento no log de auditoria #jose
 - [ ] Visão consolidada de ordens (`/admin/orders`) — todas as ordens da plataforma, sem a checagem de participante de `/orders/[id]` #julia

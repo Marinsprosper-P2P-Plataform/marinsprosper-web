@@ -7,6 +7,7 @@ import { ArrowRightIcon, ClockIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DepositDialog } from "./deposit-dialog";
+import { WithdrawDialog } from "./withdraw-dialog";
 import { useMockAuditLog } from "@/lib/mock/audit-log";
 import { EXPOSURE_FACTOR, computeCashierLimit, useMockCollateral } from "@/lib/mock/collateral";
 import { useMockSession } from "@/lib/mock/session";
@@ -21,10 +22,11 @@ import { formatUSDT } from "@/lib/mock/format";
  */
 export default function WalletPage() {
   const { user } = useMockSession();
-  const { getAccount, initiateDeposit, confirmDeposit } = useMockCollateral();
+  const { getAccount, initiateDeposit, confirmDeposit, requestWithdrawal, confirmWithdrawal } = useMockCollateral();
   const { logEvent } = useMockAuditLog();
   const account = getAccount(user.id);
-  const scheduledRef = useRef(new Set<string>());
+  const scheduledDepositsRef = useRef(new Set<string>());
+  const scheduledWithdrawalsRef = useRef(new Set<string>());
 
   // Confirmação on-chain simulada: cada depósito pendente agenda seu
   // próprio timeout até `confirmAt`, sem duplicar entre re-renders
@@ -34,8 +36,8 @@ export default function WalletPage() {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     for (const deposit of account.pendingDeposits) {
-      if (scheduledRef.current.has(deposit.id)) continue;
-      scheduledRef.current.add(deposit.id);
+      if (scheduledDepositsRef.current.has(deposit.id)) continue;
+      scheduledDepositsRef.current.add(deposit.id);
 
       const delay = Math.max(0, new Date(deposit.confirmAt).getTime() - Date.now());
       const timer = setTimeout(() => {
@@ -54,6 +56,37 @@ export default function WalletPage() {
 
     return () => timers.forEach(clearTimeout);
   }, [account, confirmDeposit, logEvent, user.id, user.name, user.username]);
+
+  // Mesmo padrão acima, pro caminho inverso: saque sai de `available`
+  // na hora do pedido (ver `REQUEST_WITHDRAWAL` no reducer) e só vira
+  // `withdrawn` depois deste processamento simulado — item do Kanban
+  // "fluxo de saque de caução" (`pendingWithdrawal` existia no modelo
+  // sem nenhuma tela alimentando ele ainda).
+  useEffect(() => {
+    if (!account) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    for (const withdrawal of account.pendingWithdrawals) {
+      if (scheduledWithdrawalsRef.current.has(withdrawal.id)) continue;
+      scheduledWithdrawalsRef.current.add(withdrawal.id);
+
+      const delay = Math.max(0, new Date(withdrawal.confirmAt).getTime() - Date.now());
+      const timer = setTimeout(() => {
+        confirmWithdrawal(user.id, withdrawal.id);
+        logEvent({
+          category: "on-chain",
+          actor: "sistema",
+          action: "Saque de caução confirmado",
+          target: `${user.name} (@${user.username})`,
+          details: `${formatUSDT(withdrawal.amount)} enviados na rede TRC20 (simulado) para ${withdrawal.destinationAddress}.`,
+        });
+        toast.success(`Saque de ${formatUSDT(withdrawal.amount)} confirmado`);
+      }, delay);
+      timers.push(timer);
+    }
+
+    return () => timers.forEach(clearTimeout);
+  }, [account, confirmWithdrawal, logEvent, user.id, user.name, user.username]);
 
   if (!account) return null;
 
@@ -76,10 +109,16 @@ export default function WalletPage() {
           <h1 className="text-xl font-semibold">Carteira</h1>
           <p className="text-muted-foreground text-sm">Caução do caixeiro e limite pra aceitar ordens</p>
         </div>
-        <DepositDialog
-          depositAddress={account.depositAddress}
-          onDeposit={(amount) => initiateDeposit(user.id, amount)}
-        />
+        <div className="flex items-center gap-2">
+          <WithdrawDialog
+            availableBalance={account.available}
+            onWithdraw={(amount, destinationAddress) => requestWithdrawal(user.id, amount, destinationAddress)}
+          />
+          <DepositDialog
+            depositAddress={account.depositAddress}
+            onDeposit={(amount) => initiateDeposit(user.id, amount)}
+          />
+        </div>
       </div>
 
       <div className="border-border grid grid-cols-2 gap-4 rounded-lg border p-4">
@@ -122,6 +161,29 @@ export default function WalletPage() {
                 <Badge variant="secondary" className="gap-1">
                   <ClockIcon className="size-3" />
                   Aguardando confirmação on-chain
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {account.pendingWithdrawals.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium">Saques em processamento</h2>
+          <ul className="flex flex-col gap-2">
+            {account.pendingWithdrawals.map((withdrawal) => (
+              <li
+                key={withdrawal.id}
+                className="border-border flex items-center justify-between gap-2 rounded-lg border p-3"
+              >
+                <div className="flex flex-col">
+                  <span className="text-sm">{formatUSDT(withdrawal.amount)}</span>
+                  <span className="text-muted-foreground font-mono text-xs">{withdrawal.destinationAddress}</span>
+                </div>
+                <Badge variant="secondary" className="gap-1">
+                  <ClockIcon className="size-3" />
+                  Em processamento
                 </Badge>
               </li>
             ))}

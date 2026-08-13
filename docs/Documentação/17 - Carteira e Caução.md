@@ -49,3 +49,22 @@ Ao confirmar, `initiateDeposit` joga o valor pra `underReview` e cria um `Pendin
 2. "Depositar caução" → endereço fake exibido, valor de 500 → "Em análise" sobe pra 500 USDT, card "Depósitos em análise" aparece com o badge "Aguardando confirmação on-chain"
 3. Esperando ~8s: depósito confirmado sozinho (toast), "Em análise" volta a zero, "Disponível" sobe pra 6.500, limite bruto/disponível recalculam pra 3.250 USDT
 4. `/wallet/availability` — toggle online/offline funciona (badge e texto de status mudam junto), dias/horário/métodos editáveis
+
+## Fluxo de saque de caução
+
+Item pendente do Kanban: `CollateralAccount.pendingWithdrawal` já existia no modelo desde a implementação original deste bucket, mas nenhuma tela o alimentava — só depósito estava implementado. Achado no checklist de validação da Sprint -1, ver [[19 - Checklist de Validação Sprint -1]].
+
+Espelha o fluxo de depósito, na direção contrária:
+
+- **Modelo (`src/lib/mock/collateral.tsx`)** — nova interface `PendingWithdrawal` (`id`, `amount`, `destinationAddress`, `confirmAt`), e `CollateralAccount` ganhou `pendingWithdrawals: PendingWithdrawal[]` (lista dos saques em processamento, ao lado do campo agregado `pendingWithdrawal: number` que já existia). Duas ações novas no reducer: `REQUEST_WITHDRAWAL` (move o valor de `available` pra `pendingWithdrawal` na hora, com guarda contra saque maior que o disponível — defesa em profundidade, a mesma checagem já roda na UI) e `CONFIRM_WITHDRAWAL` (move de `pendingWithdrawal` pra `withdrawn`, idempotente se o id já não estiver mais na lista).
+- **`wallet/withdraw-dialog.tsx` (`WithdrawDialog`)** — pede valor e endereço de destino TRC20 (texto livre, mesma simplificação do endereço de depósito fake); valida saldo disponível antes de habilitar o botão. Mesmo aviso do depósito sobre endereço/rede errada = perda de fundos, sem reversão.
+- **`/wallet`** — botão "Solicitar saque" ao lado de "Depositar caução". Segundo `useEffect` com seu próprio `useRef<Set>` (mesmo cuidado do `PaymentCountdown`/dos depósitos, pra nunca agendar duas vezes o mesmo saque) agenda o processamento simulado; ao vencer, `confirmWithdrawal` move o saldo e um evento `on-chain` é registrado no log de auditoria ("Saque de caução confirmado"), igual ao padrão já usado pra depósito. Nova seção "Saques em processamento" (mesmo visual de "Depósitos em análise") lista cada saque pendente com valor, endereço de destino e badge.
+- **Seed** — Beto (`user-cashier-1`) já nasce com um saque de 300 USDT em processamento, pra `/wallet` ter algo pra mostrar sem precisar solicitar um novo primeiro.
+
+## Testado manualmente, em dev
+
+1. `/wallet` como Beto (via `AccountSwitcher`) — saque seed de 300 USDT aparece em "Saques em processamento"; após ~8s confirma sozinho (toast "Saque de 300 USDT confirmado"), `Pendente de retirada` volta a 0, `Retirado` sobe pra 300
+2. Como Ana — "Solicitar saque" de 50.000 USDT (acima do disponível de 6.000) bloqueia o botão com "Esse valor excede seu saldo disponível"; 500 USDT com endereço de destino preenchido: `Disponível` cai pra 5.500, `Pendente de retirada` sobe pra 500, limite bruto/disponível recalculam pra 2.750 USDT na hora
+3. Após ~8s, confirmação automática: `Pendente de retirada` volta a 0, `Retirado` sobe pra 1.700 USDT (1.200 do seed + 500 do saque)
+
+`npm run lint` e `npx tsc --noEmit` sem erros.
