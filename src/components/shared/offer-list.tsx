@@ -12,6 +12,8 @@ import { useMockSession } from "@/lib/mock/session";
 import { formatBRL } from "@/lib/mock/format";
 import { getUserReputation } from "@/lib/mock/reputation";
 import type { Order } from "@/types/order";
+import { acceptOrderRequest } from "@/lib/orders/api";
+import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
  * Listagem de ordens `OPEN` com aceite — reaproveitada em `/offers` e na
@@ -36,6 +38,30 @@ export function OfferList({ orders }: { orders: Order[] }) {
     }
 
     setAcceptingId(orderId);
+
+    // Chamada real ao backend (POST /orders/:id/accept) — testada e
+    // confirmada contra o ambiente de teste (2026-08-14), incluindo o
+    // próprio 422 de espelho de colateral desatualizado que este catch
+    // trata. `GET /orders` ainda não está ligado, então os ids de
+    // `orders` aqui continuam sendo do "backend fake" em memória e vão
+    // bater 404 contra a API real até a listagem também ser real — 422
+    // (caução insuficiente/limite excedido/espelho vencido) é o único
+    // caso que já vale mostrar pro usuário como está, é exatamente o
+    // erro específico que o card pede pra não tratar como genérico.
+    try {
+      await acceptOrderRequest(orderId, generateIdempotencyKey());
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        toast.error(error.message || "Caução insuficiente ou limite excedido");
+      } else if (error instanceof ApiNetworkError) {
+        console.warn("[offer-list] POST /orders/:id/accept (real) falhou por rede:", error);
+      } else if (error instanceof ApiError) {
+        console.warn("[offer-list] POST /orders/:id/accept (real) falhou:", error);
+      }
+      // Não interrompe o fluxo do protótipo — segue aceitando localmente
+      // mesmo se a chamada real falhar (ver comentário acima).
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 400));
     // Snapshot da primeira chave PIX do caixeiro no momento do aceite —
     // sem isso o cliente não saberia pra qual conta transferir numa

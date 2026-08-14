@@ -41,13 +41,20 @@ export class ApiError extends Error {
   }
 }
 
-/** Erro de rede/CORS antes de qualquer resposta HTTP chegar — ver §0 do
- * mesmo documento: sem a origem na allowlist de `CORS_ORIGINS`, o
- * navegador bloqueia a chamada sem detalhe nenhum de rede útil. */
+/**
+ * Erro antes de qualquer resposta HTTP chegar — cobre tanto falha de
+ * rede/CORS de verdade quanto `NEXT_PUBLIC_API_URL` ausente
+ * (`getApiBaseUrl()` lança dentro do mesmo `try` do `fetch`, ver
+ * `client.ts`). As duas causas produzem a mesma mensagem genérica pro
+ * usuário — já aconteceu de uma ser confundida com a outra (ver
+ * [[21 - Integração com API Real]] §-1, "Correção"), então quem for
+ * investigar um `ApiNetworkError` deve checar `.env.local` antes de
+ * suspeitar de `CORS_ORIGINS`.
+ */
 export class ApiNetworkError extends Error {
   constructor(cause: unknown) {
     super(
-      "Não foi possível contatar o servidor. Verifique sua conexão ou se a origem está liberada em CORS_ORIGINS.",
+      "Não foi possível contatar o servidor. Verifique sua conexão, o arquivo .env.local (NEXT_PUBLIC_API_URL) ou se a origem está liberada em CORS_ORIGINS.",
     );
     this.name = "ApiNetworkError";
     this.cause = cause;

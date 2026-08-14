@@ -19,6 +19,8 @@ import { useMockPixKeys } from "@/lib/mock/pix-keys";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
 import { createOrderSchema, type CreateOrderInput } from "@/lib/validations/order";
+import { createOrderRequest } from "@/lib/orders/api";
+import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
  * POST /orders — protótipo com dados fake. A taxa NUNCA é calculada
@@ -58,9 +60,16 @@ export default function NewOrderPage() {
     formState: { errors, isSubmitting },
   } = useForm<CreateOrderInput>({
     resolver: zodResolver(createOrderSchema),
-    defaultValues: { type: "compra", grossAmount: 0, paymentMethod: "PIX", pixKeyId: "" },
+    defaultValues: {
+      type: "compra",
+      grossAmount: 0,
+      paymentMethod: "PIX",
+      pixKeyId: "",
+      clientTronAddress: "",
+    },
   });
 
+  const type = useWatch({ control, name: "type" });
   const pixKeyId = useWatch({ control, name: "pixKeyId" });
   const selectedPixKey = myPixKeys.find((key) => key.id === pixKeyId);
   const triangulationBlocked =
@@ -97,8 +106,39 @@ export default function NewOrderPage() {
     setPendingOrder(data);
   }
 
-  function handleConfirmed() {
+  async function handleConfirmed() {
     if (!pendingOrder || !quote || !selectedPixKey) return;
+
+    // Chamada real ao backend (POST /orders) — testada e confirmada
+    // contra o ambiente de teste (2026-08-14): 201 real, `side`/`asset`/
+    // `assetAmount`/`rate`/`clientTronAddress`/`publish` batem certinho.
+    // `GET /orders`/`/orders/:id` ainda não estão ligados (bucket "Ordens
+    // & Ofertas" segue em andamento), então o resto da tela continua
+    // funcionando a partir do "backend fake" em memória (`createOrder`
+    // abaixo) até a leitura também ser real. Ver [[21 - Integração com
+    // API Real]].
+    try {
+      await createOrderRequest(
+        {
+          side: pendingOrder.type === "compra" ? "CLIENT_BUYS_ASSET" : "CLIENT_SELLS_ASSET",
+          asset: "USDT",
+          assetAmount: String(quote.netAmount),
+          rate: String(quote.quote),
+          clientTronAddress:
+            pendingOrder.type === "compra" ? pendingOrder.clientTronAddress : undefined,
+          publish: true,
+        },
+        generateIdempotencyKey(),
+      );
+    } catch (error) {
+      if (error instanceof ApiNetworkError) {
+        toast.error(error.message);
+      } else if (error instanceof ApiError) {
+        toast.error(`Backend recusou a ordem: ${error.message}`);
+      }
+      // Não interrompe o fluxo do protótipo — segue criando a ordem
+      // local mesmo se a chamada real falhar (ver comentário acima).
+    }
 
     const order = createOrder({
       type: pendingOrder.type,
@@ -206,6 +246,26 @@ export default function NewOrderPage() {
             <p className="text-destructive text-sm">{errors.grossAmount.message}</p>
           )}
         </div>
+
+        {type === "compra" && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="clientTronAddress">Endereço TRON (TRC20) que vai receber o USDT</Label>
+            <Input
+              id="clientTronAddress"
+              autoComplete="off"
+              placeholder="T..."
+              aria-invalid={!!errors.clientTronAddress}
+              {...register("clientTronAddress", { onChange: invalidateQuote })}
+            />
+            {errors.clientTronAddress && (
+              <p className="text-destructive text-sm">{errors.clientTronAddress.message}</p>
+            )}
+            <p className="text-muted-foreground text-xs">
+              Vira o beneficiário fixado no contrato de custódia assim que um caixeiro aceitar —
+              não dá pra trocar depois.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="pixKeyId">Chave PIX</Label>

@@ -79,8 +79,10 @@ export async function apiFetch<T>(
       signal,
     });
   } catch (cause) {
-    // Sem CORS_ORIGINS liberado pra esta origem, a chamada nunca chega a
-    // ter resposta HTTP — cai aqui, não no branch de erro abaixo.
+    // Cobre tanto falha de rede/CORS de verdade quanto `getApiBaseUrl()`
+    // lançando por `NEXT_PUBLIC_API_URL` ausente (`.env.local` não
+    // configurado) — nenhum dos dois casos chega a ter resposta HTTP,
+    // então caem aqui, não no branch de erro abaixo. Ver `ApiNetworkError`.
     throw new ApiNetworkError(cause);
   }
 

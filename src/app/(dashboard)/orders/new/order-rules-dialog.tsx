@@ -29,7 +29,7 @@ export function OrderRulesDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }) {
   const [agreed, setAgreed] = useState(false);
   const [password, setPassword] = useState("");
