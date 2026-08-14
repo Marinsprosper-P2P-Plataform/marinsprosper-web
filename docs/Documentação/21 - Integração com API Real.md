@@ -10,6 +10,15 @@ O backend (`marinsprosper-api`, NestJS + Postgres + Redis + TRON, repositório s
 
 Levantamento feito por inspeção direta do código do backend (`src/modules/`, `prisma/schema.prisma`, `README.md`, `.env.example`, `deploy/`), não por suposição — mesmo princípio das outras auditorias deste vault (ver [[19 - Checklist de Validação Sprint -1]]). Reauditado em 2026-08-13 (auditoria anterior: 2026-08-10) — o backend avançou bastante nesses 3 dias: KYC, MFA (enrollment), avaliações, disputas e todo o painel de admin saíram do zero pra prontos. As seções abaixo foram atualizadas por completo, não só emendadas.
 
+## -1. Estado da implementação no front
+
+Os dois primeiros itens do bucket "Fundação" do Kanban já existem em código, isolados em `src/lib/api/` (nenhuma tela usa ainda — telas continuam no mock até os cards de cada bucket serem migrados um a um):
+
+- **Cliente HTTP** (`client.ts`, `config.ts`, `errors.ts`, `types.ts`) — `apiFetch`/`api.{get,post,patch,delete}`, base URL sempre via `NEXT_PUBLIC_API_URL` (nunca `localhost`), `Decimal = string` como lembrete de tipo pra nunca converter dinheiro, `ApiError` (`isNotFound`/`isConflict`/`isUnauthorized`) separado de `ApiNetworkError` (falha de CORS/rede antes de qualquer resposta chegar). Ponto de injeção do token pronto (`auth-token.ts`), mas ainda não ligado — entra junto com "Autenticação real".
+- **`Idempotency-Key` automático** (`idempotency.ts`) — `generateIdempotencyKey()` valida contra `[A-Za-z0-9._~-]{16,128}`; `createIdempotencyKeyManager()` guarda a chave de uma ação em andamento pra retry reusar (`getKey()`) e reseta só quando a ação conclui (`reset()`). `apiFetch` recusa qualquer `POST`/`PATCH`/`PUT`/`DELETE` sem key. `ApiFetchResult.replayed` expõe o header `Idempotent-Replayed`.
+
+Pendência que ficou fora (não é código de front): pedir ao time de backend pra acrescentar a origem do front em `CORS_ORIGINS` — ver §0 abaixo.
+
 ## 0. Onde o backend roda — a separação front/backend é real, não só arquitetural
 
 Front e backend rodam em **repositórios e máquinas diferentes**. Não existe (e não vai existir) um backend em `localhost` pro front apontar — desde o primeiro dia o backend sobe numa VM própria.

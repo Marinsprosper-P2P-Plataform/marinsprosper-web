@@ -48,9 +48,7 @@ Backend (`marinsprosper-api`, repositório separado: <https://github.com/Marinsp
 
 ### Fundação (bloqueia todo o resto)
 
-- [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL` (ambiente de teste na VM, nunca `localhost`), dinheiro tratado como string decimal ponta a ponta (backend nunca manda `number`), tratamento padronizado de erro (404 = "não é sua", nunca 403; 409 = recarregar e reavaliar) #jose
-- [ ] Pedir ao time de backend pra acrescentar a origem do front (`localhost:3000` em dev, domínio do Vercel depois) em `CORS_ORIGINS` — sem isso o navegador bloqueia toda chamada antes de sair, sem erro de rede útil no console #jose
-- [ ] Header `Idempotency-Key` automático (UUID v4 novo por ação do usuário, reusado em retry, não em nova ação, formato `[A-Za-z0-9._~-]{16,128}`) em toda chamada marcada ⚡ em [[21 - Integração com API Real]] #julia
+- [ ] Pedir ao time de backend pra acrescentar a origem do front (`localhost:3000` em dev, domínio do Vercel depois) em `CORS_ORIGINS` — sem isso o navegador bloqueia toda chamada antes de sair, sem erro de rede útil no console; **precisa de ação humana fora do front, não dá pra resolver em código** #jose
 - [ ] Autenticação real — `POST /auth/login`/`register`/`refresh`/`logout` prontos no backend; remove o checkbox "entrando como caixeiro/admin" de `/login` (papel vem do JWT); `notifySessionExpired()` (`src/lib/session.ts`) já pronto pro interceptor de 401 chamar #jose
 - [ ] Remapeamento da máquina de estados — `OrderStatus` do front (11 estados incl. `AWAITING_*`) precisa colapsar pros 10 estados reais do backend; `OrderTimeline` aprende a tratar `AWAITING_*` como a mesma etapa vista por cada papel, não um estado à parte; ver tabela completa em [[21 - Integração com API Real]] #julia
 
@@ -181,6 +179,8 @@ Backend (`marinsprosper-api`, repositório separado: <https://github.com/Marinsp
 - [ ] Painel de reputação da contraparte (`counterpartyStats`) e selo de risco (`riskAssessment`) no detalhe da ordem, reaproveitando os tokens `--status-*` já corrigidos pro tema escuro #julia
 - [ ] Validação de identidade do PIX no detalhe da ordem — compara `holderName` da chave com o nome cadastrado da contraparte, alerta de divergência ou confirmação discreta quando bate; `PixKey`/snapshots ganharam `holderName` #jose
 - [ ] Botões de copiar (titular, chave PIX, valor, documento, TXID) com feedback textual, card "Você paga"/"Você recebe" por papel/sentido da ordem, modal de checklist antes de "Já paguei — confirmar transferência" e aviso ao cancelar com pagamento já informado #julia
+- [ ] Cliente HTTP em `src/lib/api` — base URL via `NEXT_PUBLIC_API_URL` (ambiente de teste na VM, nunca `localhost`), dinheiro tratado como string decimal ponta a ponta (`Decimal` em `types.ts`, cliente nunca converte number↔string), tratamento padronizado de erro (`ApiError.isNotFound`/`isConflict`, 404 = "não é sua" nunca 403; `ApiNetworkError` separado pra falha de CORS antes de qualquer resposta) #jose
+- [ ] Header `Idempotency-Key` automático — `generateIdempotencyKey`/`createIdempotencyKeyManager` em `src/lib/api/idempotency.ts` (UUID v4 validado contra `[A-Za-z0-9._~-]{16,128}`, reuso em retry via `getKey()`, `reset()` só ao concluir a ação); `apiFetch` exige a key em todo método de escrita e expõe `replayed` a partir do header `Idempotent-Replayed` #julia
 
 
 
