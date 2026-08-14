@@ -1,17 +1,28 @@
 /**
- * Ponto único de onde o cliente HTTP lê o access token — hoje sem
- * implementação (autenticação real ainda não está conectada, é o card
- * seguinte no Kanban). `src/lib/session.ts` documenta que o interceptor
- * de 401 deste cliente chama `notifySessionExpired()` quando o login
- * real existir; este módulo é o outro lado dessa ponte: quem loga chama
- * `setAccessTokenProvider` uma vez, o cliente HTTP nunca lê storage direto.
+ * Ponte entre o cliente HTTP (`./client`) e a sessão real de autenticação
+ * (`src/lib/auth/session.tsx`) — o cliente nunca lê storage/JWT direto,
+ * só chama estes dois pontos de extensão, registrados uma vez pelo
+ * `AuthProvider` quando ele monta.
  */
-let provider: (() => string | null) | null = null;
+let tokenProvider: (() => string | null) | null = null;
+let unauthorizedHandler: (() => void | Promise<void>) | null = null;
 
 export function setAccessTokenProvider(fn: (() => string | null) | null): void {
-  provider = fn;
+  tokenProvider = fn;
 }
 
 export function getAccessToken(): string | null {
-  return provider?.() ?? null;
+  return tokenProvider?.() ?? null;
+}
+
+/** Chamado pelo `AuthProvider` quando monta — tenta um refresh e só chama
+ * `notifySessionExpired()` (`src/lib/session.ts`) se o refresh também
+ * falhar. `null` desregistra (ex. no unmount). */
+export function setUnauthorizedHandler(fn: (() => void | Promise<void>) | null): void {
+  unauthorizedHandler = fn;
+}
+
+/** Chamado por `apiFetch` sempre que uma resposta vem 401. */
+export async function triggerUnauthorized(): Promise<void> {
+  await unauthorizedHandler?.();
 }

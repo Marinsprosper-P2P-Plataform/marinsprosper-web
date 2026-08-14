@@ -1,11 +1,9 @@
-import { getAccessToken } from "./auth-token";
+import { getAccessToken, triggerUnauthorized } from "./auth-token";
 import { getApiBaseUrl } from "./config";
 import { ApiError, ApiNetworkError } from "./errors";
 import type { ApiErrorBody } from "./types";
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-
-const WRITE_METHODS: ReadonlySet<HttpMethod> = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
 export interface ApiFetchOptions {
   method?: HttpMethod;
@@ -13,11 +11,17 @@ export interface ApiFetchOptions {
    * como string decimal (`Decimal` em `./types`) — este cliente nunca
    * converte number↔string, só repassa o corpo. */
   body?: unknown;
-  /** Obrigatório em toda rota ⚡ (ver [[21 - Integração com API Real]]).
-   * Gere com `generateIdempotencyKey`/`createIdempotencyKeyManager` de
-   * `./idempotency` — mesma chave em retry da mesma ação, nova chave em
-   * ação nova. Ignorado em métodos que não escrevem (`GET`). */
+  /** Só as rotas marcadas ⚡ em [[21 - Integração com API Real]] §3
+   * exigem isto (escritas financeiras) — as demais escritas (ex. auth)
+   * não mandam o header. Gere com `generateIdempotencyKey`/
+   * `createIdempotencyKeyManager` de `./idempotency`: mesma chave em
+   * retry da mesma ação, nova chave em ação nova. */
   idempotencyKey?: string;
+  /** Sobrescreve o access token da sessão pra esta chamada — só existe
+   * pro passo intermediário de `POST /auth/mfa/verify`/`recovery`, que
+   * exige Bearer com o `mfaToken` de vida curta devolvido pelo login,
+   * nunca o access token normal (ainda não emitido nesse ponto). */
+  accessTokenOverride?: string;
   signal?: AbortSignal;
 }
 
@@ -48,7 +52,7 @@ export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<ApiFetchResult<T>> {
-  const { method = "GET", body, idempotencyKey, signal } = options;
+  const { method = "GET", body, idempotencyKey, accessTokenOverride, signal } = options;
 
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -57,17 +61,12 @@ export async function apiFetch<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const token = getAccessToken();
+  const token = accessTokenOverride ?? getAccessToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  if (WRITE_METHODS.has(method)) {
-    if (!idempotencyKey) {
-      throw new Error(
-        `apiFetch: idempotencyKey é obrigatório em ${method} ${path} — use generateIdempotencyKey()/createIdempotencyKeyManager() de ./idempotency`,
-      );
-    }
+  if (idempotencyKey) {
     headers["Idempotency-Key"] = idempotencyKey;
   }
 
@@ -89,6 +88,12 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const errorBody = await parseErrorBody(response);
+    if (response.status === 401) {
+      // Dispara o interceptor registrado pelo AuthProvider (tenta refresh;
+      // só chama notifySessionExpired() se o refresh falhar também) —
+      // fire-and-forget, a chamada atual continua rejeitando como ApiError.
+      void triggerUnauthorized();
+    }
     throw new ApiError(response.status, errorBody);
   }
 
@@ -101,12 +106,12 @@ export async function apiFetch<T>(
 }
 
 export const api = {
-  get: <T>(path: string, options?: Omit<ApiFetchOptions, "method" | "idempotencyKey">) =>
+  get: <T>(path: string, options?: Omit<ApiFetchOptions, "method">) =>
     apiFetch<T>(path, { ...options, method: "GET" }),
-  post: <T>(path: string, body: unknown, idempotencyKey: string, options?: Omit<ApiFetchOptions, "method" | "body" | "idempotencyKey">) =>
-    apiFetch<T>(path, { ...options, method: "POST", body, idempotencyKey }),
-  patch: <T>(path: string, body: unknown, idempotencyKey: string, options?: Omit<ApiFetchOptions, "method" | "body" | "idempotencyKey">) =>
-    apiFetch<T>(path, { ...options, method: "PATCH", body, idempotencyKey }),
-  delete: <T>(path: string, idempotencyKey: string, options?: Omit<ApiFetchOptions, "method" | "idempotencyKey">) =>
-    apiFetch<T>(path, { ...options, method: "DELETE", idempotencyKey }),
+  post: <T>(path: string, body: unknown, options?: Omit<ApiFetchOptions, "method" | "body">) =>
+    apiFetch<T>(path, { ...options, method: "POST", body }),
+  patch: <T>(path: string, body: unknown, options?: Omit<ApiFetchOptions, "method" | "body">) =>
+    apiFetch<T>(path, { ...options, method: "PATCH", body }),
+  delete: <T>(path: string, options?: Omit<ApiFetchOptions, "method">) =>
+    apiFetch<T>(path, { ...options, method: "DELETE" }),
 };

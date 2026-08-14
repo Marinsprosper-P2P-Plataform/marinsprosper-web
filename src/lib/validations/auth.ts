@@ -1,15 +1,17 @@
 import { z } from "zod";
+import { isCpfCnpjFormat } from "./pix";
 
 /**
- * Validação de UI apenas — protótipo com dados fake (Sprint -1). A
- * validação real, que decide o que é aceito de verdade, vive sempre no
- * backend (ver Parte 1, seção 3 dos princípios fundamentais).
+ * Validação de UI apenas — a validação real, que decide o que é aceito
+ * de verdade, vive sempre no backend (ver Parte 1, seção 3 dos
+ * princípios fundamentais). A partir do Sprint 4, login/registro/MFA
+ * chamam a API real (`src/lib/auth`) — só o resto do app (ordens,
+ * carteira etc.) continua em dados fake.
  */
 
 export const loginSchema = z.object({
   email: z.email("Informe um e-mail válido"),
   password: z.string().min(1, "Informe sua senha"),
-  isCashierOrAdmin: z.boolean(),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
@@ -20,6 +22,14 @@ export const mfaSchema = z.object({
     .regex(/^\d+$/, "Só números"),
 });
 export type MfaInput = z.infer<typeof mfaSchema>;
+
+/** `POST /auth/mfa/recovery` não documenta formato de código no Swagger
+ * (rota nem aparece lá ainda, ver `src/lib/auth/api.ts`) — só exige não
+ * vazio, sem presumir tamanho/máscara de um TOTP. */
+export const mfaRecoverySchema = z.object({
+  code: z.string().trim().min(1, "Informe o código de recuperação"),
+});
+export type MfaRecoveryInput = z.infer<typeof mfaRecoverySchema>;
 
 /** Mesma forma do `mfaSchema`, mas schemas separados porque cobrem
  * endpoints diferentes (`/auth/verify-email`, `/auth/verify-phone`) —
@@ -59,6 +69,11 @@ export const usernameSchema = z
   .max(20, "Máximo de 20 caracteres")
   .regex(/^[a-z0-9_]+$/, "Só minúsculas, números e _");
 
+export const DOCUMENT_TYPES = [
+  { id: "CPF", label: "CPF" },
+  { id: "CNPJ", label: "CNPJ" },
+] as const;
+
 export const registerSchema = z
   .object({
     name: z.string().min(2, "Informe seu nome completo"),
@@ -70,12 +85,27 @@ export const registerSchema = z
     }),
     city: z.string().min(2, "Informe sua cidade"),
     role: z.enum(["cliente", "caixeiro"]),
-    password: z.string().min(8, "Mínimo de 8 caracteres"),
+    /** `documentType`/`documentNumber` — únicos campos de documento que
+     * `POST /auth/register` de fato aceita hoje (confirmado no Swagger
+     * do ambiente de teste); `@username`, país e cidade continuam só na
+     * UI até o backend aceitar esses campos (ver
+     * [[21 - Integração com API Real]] §3, linha de `/auth/register`). */
+    documentType: z.enum(DOCUMENT_TYPES.map((type) => type.id) as ["CPF", "CNPJ"], {
+      error: "Selecione o tipo de documento",
+    }),
+    documentNumber: z.string(),
+    // Backend exige mínimo de 12 caracteres — maior que os 8 do resto do
+    // protótipo, confirmado no Swagger (`password.minLength: 12`).
+    password: z.string().min(12, "Mínimo de 12 caracteres"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "As senhas não coincidem",
     path: ["confirmPassword"],
+  })
+  .refine((data) => isCpfCnpjFormat(data.documentNumber), {
+    message: "CPF (11 dígitos) ou CNPJ (14 dígitos)",
+    path: ["documentNumber"],
   });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

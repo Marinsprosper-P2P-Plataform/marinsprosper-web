@@ -2,40 +2,49 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { AuthCard } from "@/components/shared/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
+import { useAuth } from "@/lib/auth";
+import { ApiError, ApiNetworkError } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const {
     register,
-    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "", isCashierOrAdmin: false },
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(data: LoginInput) {
-    // Protótipo com dados fake — a validação de credenciais de verdade
-    // acontece só no backend (Sprint 4, POST /auth/login).
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    if (data.isCashierOrAdmin) {
-      router.push("/mfa");
-      return;
+    try {
+      const result = await login(data.email, data.password);
+      if ("mfaRequired" in result) {
+        router.push(`/mfa?mfaToken=${encodeURIComponent(result.mfaToken)}`);
+        return;
+      }
+      toast.success("Login realizado");
+      router.push("/offers");
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 400)) {
+        toast.error("E-mail ou senha incorretos");
+        return;
+      }
+      if (error instanceof ApiNetworkError) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error("Não foi possível entrar. Tente novamente.");
     }
-
-    toast.success("Login realizado");
-    router.push("/offers");
   }
 
   return (
@@ -79,20 +88,6 @@ export default function LoginPage() {
             <p className="text-destructive text-sm">{errors.password.message}</p>
           )}
         </div>
-
-        <Controller
-          name="isCashierOrAdmin"
-          control={control}
-          render={({ field }) => (
-            <label className="group flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={field.value}
-                onCheckedChange={(checked) => field.onChange(checked === true)}
-              />
-              Estou entrando como caixeiro ou administrador
-            </label>
-          )}
-        />
 
         <Button type="submit" disabled={isSubmitting}>
           Entrar

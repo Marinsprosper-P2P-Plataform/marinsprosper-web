@@ -18,14 +18,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { COUNTRIES, registerSchema, type RegisterInput } from "@/lib/validations/auth";
+import {
+  COUNTRIES,
+  DOCUMENT_TYPES,
+  registerSchema,
+  type RegisterInput,
+} from "@/lib/validations/auth";
 import { checkUsernameAvailability } from "@/lib/mock/username";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { ApiError, ApiNetworkError } from "@/lib/api";
 
 type UsernameStatus = "idle" | "checking" | "available" | "taken";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { register: registerAccount } = useAuth();
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const checkSeq = useRef(0);
   const {
@@ -45,6 +53,8 @@ export default function RegisterPage() {
       country: undefined,
       city: "",
       role: "cliente",
+      documentType: "CPF",
+      documentNumber: "",
       password: "",
       confirmPassword: "",
     },
@@ -69,16 +79,37 @@ export default function RegisterPage() {
       return;
     }
 
-    // Protótipo com dados fake — POST /auth/register no Sprint 4.
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    toast.success("Cadastro criado, vamos confirmar seus contatos");
+    try {
+      // @username, país e cidade ainda não são aceitos pelo backend (ver
+      // [[21 - Integração com API Real]] §3) — só os campos abaixo vão
+      // pro POST /auth/register de verdade.
+      await registerAccount({
+        email: data.email,
+        password: data.password,
+        fullName: data.name,
+        documentType: data.documentType,
+        documentNumber: data.documentNumber.replace(/\D/g, ""),
+        phone: data.phone,
+      });
+      toast.success("Cadastro criado, vamos confirmar seus contatos");
 
-    const params = new URLSearchParams({
-      email: data.email,
-      phone: data.phone,
-      role: data.role,
-    });
-    router.push(`/verify-email?${params.toString()}`);
+      const params = new URLSearchParams({
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+      });
+      router.push(`/verify-email?${params.toString()}`);
+    } catch (error) {
+      if (error instanceof ApiError && error.isValidationError) {
+        toast.error(error.message || "Verifique os dados informados");
+        return;
+      }
+      if (error instanceof ApiNetworkError) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error("Não foi possível criar a conta. Tente novamente.");
+    }
   }
 
   return (
@@ -213,6 +244,44 @@ export default function RegisterPage() {
               </Select>
             )}
           />
+        </div>
+
+        <div className="grid grid-cols-[auto_1fr] gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="documentType">Documento</Label>
+            <Controller
+              name="documentType"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="documentType" className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOCUMENT_TYPES.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="documentNumber">Número</Label>
+            <Input
+              id="documentNumber"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-invalid={!!errors.documentNumber}
+              {...register("documentNumber")}
+            />
+            {errors.documentNumber && (
+              <p className="text-destructive text-sm">{errors.documentNumber.message}</p>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">

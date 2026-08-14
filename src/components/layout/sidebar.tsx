@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AccountSwitcher } from "@/components/shared/account-switcher";
+import { LogoutButton } from "@/components/shared/logout-button";
 import { DASHBOARD_NAV_ITEMS } from "./nav-items";
 
 /** Sidebar — só aparece a partir de `md` (tablet/desktop); em telas
@@ -49,7 +50,10 @@ export function Sidebar() {
         <AccountSwitcher />
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground text-xs">Tema</span>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <LogoutButton />
+          </div>
         </div>
       </div>
     </aside>

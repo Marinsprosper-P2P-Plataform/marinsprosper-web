@@ -1,5 +1,6 @@
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AccountSwitcher } from "@/components/shared/account-switcher";
+import { LogoutButton } from "@/components/shared/logout-button";
 
 /** Equivalente mobile do rodapé da Sidebar — só visível abaixo de `md`,
  * já que a Sidebar (com o mesmo AccountSwitcher/ThemeToggle) fica
@@ -13,6 +14,7 @@ export function MobileHeader() {
           <AccountSwitcher />
         </div>
         <ThemeToggle />
+        <LogoutButton />
       </div>
     </header>
   );
