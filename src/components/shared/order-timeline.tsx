@@ -1,7 +1,7 @@
 import { CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  ORDER_HAPPY_PATH,
+  ORDER_HAPPY_PATH_STEPS,
   ORDER_STATUS_META,
   type OrderStatus,
 } from "@/types/order";
@@ -19,16 +19,25 @@ interface OrderTimelineProps {
   className?: string;
 }
 
+/** Índice do grupo (etapa real do backend) que contém `status`, ou -1 se
+ * `status` for um ramo fora do fluxo principal. Cada grupo em
+ * `ORDER_HAPPY_PATH_STEPS` é uma única etapa do backend vista por papéis
+ * diferentes (ver [[21 - Integração com API Real]] §2) — os dois rótulos
+ * do par contam como o mesmo step aqui, nunca dois. */
+function stepIndexOf(status: OrderStatus): number {
+  return ORDER_HAPPY_PATH_STEPS.findIndex((group) => group.includes(status));
+}
+
 export function OrderTimeline({
   status,
   lastMainlineStatus,
   className,
 }: OrderTimelineProps) {
-  const mainlineIndex = ORDER_HAPPY_PATH.indexOf(status);
+  const mainlineIndex = stepIndexOf(status);
   const isBranch = mainlineIndex === -1;
   const frozenAt = isBranch
     ? lastMainlineStatus
-      ? ORDER_HAPPY_PATH.indexOf(lastMainlineStatus)
+      ? stepIndexOf(lastMainlineStatus)
       : -1
     : mainlineIndex;
 
@@ -41,13 +50,18 @@ export function OrderTimeline({
       )}
 
       <ol>
-        {ORDER_HAPPY_PATH.map((step, index) => {
+        {ORDER_HAPPY_PATH_STEPS.map((group, index) => {
           const isDone = index < frozenAt;
           const isActive = !isBranch && index === frozenAt;
-          const isLast = index === ORDER_HAPPY_PATH.length - 1;
+          const isLast = index === ORDER_HAPPY_PATH_STEPS.length - 1;
+          // Enquanto o step está ativo, mostra o rótulo exato do status
+          // atual (que já reflete o papel de quem está olhando, ver
+          // `mapBackendOrderStatus`); fora disso, o primeiro rótulo do
+          // grupo serve só como nome genérico da etapa.
+          const label = ORDER_STATUS_META[group.includes(status) ? status : group[0]].label;
 
           return (
-            <li key={step} className="flex gap-3">
+            <li key={group[0]} className="flex gap-3">
               <div className="flex flex-col items-center">
                 <span
                   className={cn(
@@ -80,7 +94,7 @@ export function OrderTimeline({
                     : "text-muted-foreground",
                 )}
               >
-                {ORDER_STATUS_META[step].label}
+                {label}
               </div>
             </li>
           );

@@ -124,6 +124,24 @@ export const ORDER_HAPPY_PATH: OrderStatus[] = [
   "COMPLETED",
 ];
 
+/**
+ * Mesmo fluxo de `ORDER_HAPPY_PATH`, mas agrupado do jeito que o backend
+ * real enxerga (ver [[21 - Integração com API Real]] §2): os pares
+ * `AWAITING_*`/estado-base são a mesma etapa vista por papéis diferentes,
+ * não dois passos separados — `OrderTimeline` usa isto pra desenhar um
+ * step por etapa real, não por variação de rótulo. `RESERVED` fica de
+ * fora: não existe como estado no backend (aceite vai direto
+ * `OPEN → ACCEPTED`) e a máquina de estados do mock nunca o atribui.
+ */
+export const ORDER_HAPPY_PATH_STEPS: OrderStatus[][] = [
+  ["OPEN"],
+  ["ACCEPTED", "AWAITING_CLIENT_TRANSFER"],
+  ["CLIENT_MARKED_TRANSFERRED", "AWAITING_CASHIER_CONFIRMATION"],
+  ["CASHIER_CONFIRMED_RECEIPT", "AWAITING_CASHIER_TRANSFER"],
+  ["CASHIER_MARKED_TRANSFERRED", "AWAITING_CLIENT_CONFIRMATION"],
+  ["COMPLETED"],
+];
+
 export type OrderType = "compra" | "venda";
 
 export type CancelRequester = "cliente" | "caixeiro";
