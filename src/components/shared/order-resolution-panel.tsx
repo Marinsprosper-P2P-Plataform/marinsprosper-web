@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StarIcon } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +27,19 @@ import type { Order } from "@/types/order";
  * isso ficam num painel separado das ações do ciclo principal
  * (OrderActions), que dependem do status exato.
  */
+/** Status a partir dos quais o cliente já informou o pagamento (ou o
+ * caixeiro já confirmou/enviou o ativo) — cancelar a partir daqui exige
+ * um aviso extra, porque já existe dinheiro ou ativo em trânsito entre
+ * as partes, diferente de cancelar antes de qualquer transferência. */
+const ALREADY_PAID_STATUSES: Order["status"][] = [
+  "CLIENT_MARKED_TRANSFERRED",
+  "AWAITING_CASHIER_CONFIRMATION",
+  "CASHIER_CONFIRMED_RECEIPT",
+  "AWAITING_CASHIER_TRANSFER",
+  "CASHIER_MARKED_TRANSFERRED",
+  "AWAITING_CLIENT_CONFIRMATION",
+];
+
 export function OrderResolutionPanel({ order }: { order: Order }) {
   const { user } = useMockSession();
   const { requestCancel, respondCancel, openDispute, rateOrder } = useMockOrders();
@@ -116,6 +130,7 @@ export function OrderResolutionPanel({ order }: { order: Order }) {
     return (
       <div className="flex gap-2">
         <CancelDialog
+          alreadyPaid={ALREADY_PAID_STATUSES.includes(order.status)}
           onConfirm={(reason) => {
             requestCancel(order.id, isClient ? "cliente" : "caixeiro", reason);
             toast.success("Cancelamento solicitado");
@@ -143,7 +158,13 @@ function ActionCard({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-function CancelDialog({ onConfirm }: { onConfirm: (reason: string) => void }) {
+function CancelDialog({
+  onConfirm,
+  alreadyPaid,
+}: {
+  onConfirm: (reason: string) => void;
+  alreadyPaid: boolean;
+}) {
   const [reason, setReason] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -161,6 +182,15 @@ function CancelDialog({ onConfirm }: { onConfirm: (reason: string) => void }) {
             A contraparte precisa concordar. Se recusar, a ordem vai para disputa.
           </DialogDescription>
         </DialogHeader>
+        {alreadyPaid && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              O pagamento já foi informado nesta ordem — cancelar agora não desfaz uma
+              transferência que já aconteceu. Se o dinheiro ou o ativo já mudou de mãos, abra uma
+              disputa em vez de cancelar.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cancel-reason">Motivo</Label>
           <Textarea

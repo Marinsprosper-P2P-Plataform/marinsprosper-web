@@ -20,6 +20,10 @@ export interface PixKey {
   bank: string;
   description?: string;
   createdAt: string;
+  /** Nome do titular da chave — normalmente igual ao nome cadastrado do
+   * dono da conta, mas pode divergir (ex. chave de pessoa jurídica).
+   * Quando ausente, telas que precisam do titular usam o nome da conta. */
+  holderName?: string;
 }
 
 function seedPixKeys(): PixKey[] {
@@ -58,6 +62,18 @@ function seedPixKeys(): PixKey[] {
       key: "(41) 99876-5432",
       bank: "Itaú",
       description: "Telefone",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "pix-5",
+      userId: "user-cashier-1",
+      type: "cpf",
+      key: "12.345.678/0001-90",
+      bank: "Itaú",
+      description: "Conta PJ",
+      // Divergência proposital pra demonstrar o alerta de validação de
+      // identidade no detalhe da ordem (ver `order-6` em `orders.tsx`).
+      holderName: "Lima Consultoria e Serviços ME",
       createdAt: new Date().toISOString(),
     },
   ];

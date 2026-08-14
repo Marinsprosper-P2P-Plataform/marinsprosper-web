@@ -5,6 +5,15 @@ import { toast } from "sonner";
 import { UploadIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaymentCountdown } from "@/components/shared/payment-countdown";
@@ -193,7 +202,12 @@ function AcceptControl({ order }: { order: Order }) {
       order.id,
       user.id,
       user.name,
-      cashierPixKey && { type: cashierPixKey.type, key: cashierPixKey.key, bank: cashierPixKey.bank },
+      cashierPixKey && {
+        type: cashierPixKey.type,
+        key: cashierPixKey.key,
+        bank: cashierPixKey.bank,
+        holderName: cashierPixKey.holderName ?? user.name,
+      },
     );
     toast.success("Ordem aceita — caução reservada no contrato");
     setAccepting(false);
@@ -220,8 +234,24 @@ function ClientTransferControl({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [paidConfirmOpen, setPaidConfirmOpen] = useState(false);
+  const [checkedAmount, setCheckedAmount] = useState(false);
+  const [checkedHolder, setCheckedHolder] = useState(false);
+  const [checkedFraudNotice, setCheckedFraudNotice] = useState(false);
 
-  async function handleSubmit() {
+  function onOpenPaidConfirm() {
+    if (!file || submitting) return;
+    setPaidConfirmOpen(true);
+  }
+
+  function onClosePaidConfirm() {
+    setPaidConfirmOpen(false);
+    setCheckedAmount(false);
+    setCheckedHolder(false);
+    setCheckedFraudNotice(false);
+  }
+
+  async function onConfirmPaidFinal() {
     if (!file || submitting) return;
     setSubmitting(true);
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -231,7 +261,10 @@ function ClientTransferControl({
     onSubmit(orderId, file.name, proofUrl, file.type || "application/octet-stream");
     toast.success("Transferência informada");
     setSubmitting(false);
+    setPaidConfirmOpen(false);
   }
+
+  const canConfirm = checkedAmount && checkedHolder && checkedFraudNotice;
 
   return (
     <div className="flex flex-col gap-3">
@@ -252,9 +285,43 @@ function ClientTransferControl({
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
       </div>
-      <Button onClick={handleSubmit} disabled={!file || submitting}>
-        Marquei que transferi
+      <Button onClick={onOpenPaidConfirm} disabled={!file || submitting}>
+        Já paguei — confirmar transferência
       </Button>
+
+      <Dialog open={paidConfirmOpen} onOpenChange={(open) => (open ? setPaidConfirmOpen(true) : onClosePaidConfirm())}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar transferência</DialogTitle>
+            <DialogDescription>
+              Confira os itens abaixo antes de marcar como transferido — depois disso o caixeiro
+              é avisado pra conferir o recebimento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 text-sm">
+            <label className="flex items-start gap-2">
+              <Checkbox checked={checkedAmount} onCheckedChange={(value) => setCheckedAmount(value === true)} />
+              Transferi exatamente o valor mostrado na ordem, sem arredondar.
+            </label>
+            <label className="flex items-start gap-2">
+              <Checkbox checked={checkedHolder} onCheckedChange={(value) => setCheckedHolder(value === true)} />
+              Conferi o nome do titular da chave PIX antes de transferir.
+            </label>
+            <label className="flex items-start gap-2">
+              <Checkbox
+                checked={checkedFraudNotice}
+                onCheckedChange={(value) => setCheckedFraudNotice(value === true)}
+              />
+              Estou ciente de que informar uma transferência falsa pode levar ao bloqueio da conta.
+            </label>
+          </div>
+          <DialogFooter>
+            <Button onClick={onConfirmPaidFinal} disabled={!canConfirm || submitting}>
+              Confirmar transferência
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

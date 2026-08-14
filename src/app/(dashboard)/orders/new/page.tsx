@@ -111,6 +111,7 @@ export default function NewOrderPage() {
         type: selectedPixKey.type,
         key: selectedPixKey.key,
         bank: selectedPixKey.bank,
+        holderName: selectedPixKey.holderName ?? user.name,
       },
     });
     toast.success("Ordem criada");

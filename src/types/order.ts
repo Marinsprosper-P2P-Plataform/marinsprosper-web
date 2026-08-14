@@ -199,6 +199,10 @@ export interface Order {
     type: string;
     key: string;
     bank: string;
+    /** Nome do titular da chave — pode divergir de `clientName` (ex.
+     * chave de pessoa jurídica cadastrada por quem opera a conta). Usada
+     * pra validação de identidade no detalhe da ordem. */
+    holderName?: string;
   };
   /**
    * Chave PIX do caixeiro envolvida nesta ordem — mesmo princípio de
@@ -212,5 +216,7 @@ export interface Order {
     type: string;
     key: string;
     bank: string;
+    /** Ver `clientPixKeySnapshot.holderName`. */
+    holderName?: string;
   };
 }

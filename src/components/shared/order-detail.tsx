@@ -9,6 +9,9 @@ import { OrderResolutionPanel } from "@/components/shared/order-resolution-panel
 import { OrderChat } from "@/components/shared/order-chat";
 import { ProofLink } from "@/components/shared/proof-link";
 import { ReputationStars } from "@/components/shared/reputation-stars";
+import { CounterpartyReputationPanel } from "@/components/shared/counterparty-reputation-panel";
+import { DealSummaryCard } from "@/components/shared/deal-summary-card";
+import { PixTransferPanel } from "@/components/shared/pix-transfer-panel";
 import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
@@ -104,31 +107,27 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         lastMainlineStatus={order.previousMainlineStatus}
       />
 
+      {counterpartyId && counterpartyName && (
+        <CounterpartyReputationPanel
+          counterpartyId={counterpartyId}
+          counterpartyName={counterpartyName}
+          orders={orders}
+        />
+      )}
+
+      {order.status !== "OPEN" && order.status !== "DRAFT" && (
+        <DealSummaryCard order={order} isClient={isClient} />
+      )}
+
       {(pixPending || pixMissing || pixSnapshot) && (
-        <div className="border-border flex flex-col gap-1 rounded-lg border p-4">
-          <h2 className="text-sm font-medium">Dados PIX para transferência</h2>
-          {pixPending && (
-            <p className="text-muted-foreground text-sm">
-              Aguardando um caixeiro aceitar a ordem para exibir os dados de transferência.
-            </p>
-          )}
-          {pixMissing && (
-            <p className="text-muted-foreground text-sm">
-              {pixHolderName} ainda não tem nenhuma chave PIX cadastrada.
-            </p>
-          )}
-          {pixSnapshot && (
-            <div className="text-sm">
-              <p>
-                {order.type === "compra" ? "Transferir para" : "Cliente vai receber em"}:{" "}
-                <span className="font-medium">{pixHolderName}</span>
-              </p>
-              <p className="text-muted-foreground text-xs">
-                {pixSnapshot.bank} · {pixSnapshot.key}
-              </p>
-            </div>
-          )}
-        </div>
+        <PixTransferPanel
+          order={order}
+          counterpartyName={counterpartyName}
+          pixHolderName={pixHolderName}
+          pixSnapshot={pixSnapshot}
+          pixPending={pixPending}
+          pixMissing={pixMissing}
+        />
       )}
 
       {/* Registro persistente do comprovante — continua acessível depois

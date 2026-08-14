@@ -172,8 +172,8 @@ function seedOrders(): Order[] {
       cashierId: "user-cashier-1",
       cashierName: "Beto Caixeiro",
       clientProofName: "comprovante-pix.pdf",
-      clientPixKeySnapshot: { type: "cpf", key: "123.456.789-00", bank: "Nubank" },
-      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú" },
+      clientPixKeySnapshot: { type: "cpf", key: "123.456.789-00", bank: "Nubank", holderName: "Ana Cliente" },
+      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú", holderName: "Beto Caixeiro" },
       createdAt: t,
       updatedAt: t,
     },
@@ -197,8 +197,8 @@ function seedOrders(): Order[] {
       cashierName: "Beto Caixeiro",
       clientProofName: "comprovante-pix.pdf",
       txid: "0x3a1f...c9e2",
-      clientPixKeySnapshot: { type: "email", key: "ana.cliente@email.com", bank: "Nubank" },
-      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú" },
+      clientPixKeySnapshot: { type: "email", key: "ana.cliente@email.com", bank: "Nubank", holderName: "Ana Cliente" },
+      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú", holderName: "Beto Caixeiro" },
       createdAt: t,
       updatedAt: t,
     },
@@ -221,8 +221,40 @@ function seedOrders(): Order[] {
       cashierId: "user-cashier-1",
       cashierName: "Beto Caixeiro",
       disputeReason: "Cliente diz ter transferido, caixeiro não confirma o recebimento.",
-      clientPixKeySnapshot: { type: "cpf", key: "123.456.789-00", bank: "Nubank" },
-      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú" },
+      clientPixKeySnapshot: { type: "cpf", key: "123.456.789-00", bank: "Nubank", holderName: "Ana Cliente" },
+      cashierPixKeySnapshot: { type: "cpf", key: "987.654.321-00", bank: "Itaú", holderName: "Beto Caixeiro" },
+      createdAt: t,
+      updatedAt: t,
+    },
+    {
+      id: "order-6",
+      // Data fixa proposital (não `nextPublicId()`) — ordem de
+      // demonstração pro alerta de divergência de titularidade PIX no
+      // detalhe da ordem (chave de "Lima Consultoria e Serviços ME"
+      // recebendo em nome de "Beto Lima").
+      publicId: "MP-20260801-001006",
+      type: "compra",
+      asset: "USDT",
+      network: "TRC20",
+      fiatCurrency: "BRL",
+      paymentMethod: "PIX",
+      grossAmount: 650,
+      quote: 5.42,
+      feePercent: 3,
+      feeAmount: 19.5,
+      netAmount: 116.36,
+      status: "AWAITING_CLIENT_TRANSFER",
+      clientId: "user-client-1",
+      clientName: "Ana Ferreira",
+      cashierId: "user-cashier-1",
+      cashierName: "Beto Lima",
+      cashierPixKeySnapshot: {
+        type: "cpf",
+        key: "12.345.678/0001-90",
+        bank: "Itaú",
+        holderName: "Lima Consultoria e Serviços ME",
+      },
+      paymentDeadline: new Date(Date.now() + PAYMENT_SLA_MS).toISOString(),
       createdAt: t,
       updatedAt: t,
     },
@@ -237,7 +269,7 @@ type OrdersAction =
       orderId: string;
       cashierId: string;
       cashierName: string;
-      cashierPixKeySnapshot?: { type: string; key: string; bank: string };
+      cashierPixKeySnapshot?: { type: string; key: string; bank: string; holderName?: string };
     }
   | { type: "CLIENT_TRANSFER"; orderId: string; proofName: string; proofUrl: string; proofMimeType: string }
   | { type: "CASHIER_CONFIRM_RECEIPT"; orderId: string }
@@ -386,13 +418,13 @@ interface MockOrdersContextValue {
     quote: OrderQuote;
     clientId: string;
     clientName: string;
-    clientPixKeySnapshot: { type: string; key: string; bank: string };
+    clientPixKeySnapshot: { type: string; key: string; bank: string; holderName?: string };
   }) => Order;
   acceptOrder: (
     orderId: string,
     cashierId: string,
     cashierName: string,
-    cashierPixKeySnapshot?: { type: string; key: string; bank: string },
+    cashierPixKeySnapshot?: { type: string; key: string; bank: string; holderName?: string },
   ) => void;
   markClientTransferred: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
   confirmCashierReceipt: (orderId: string) => void;
@@ -444,7 +476,7 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
       orderId: string,
       cashierId: string,
       cashierName: string,
-      cashierPixKeySnapshot?: { type: string; key: string; bank: string },
+      cashierPixKeySnapshot?: { type: string; key: string; bank: string; holderName?: string },
     ) => dispatch({ type: "ACCEPT", orderId, cashierId, cashierName, cashierPixKeySnapshot }),
     [],
   );

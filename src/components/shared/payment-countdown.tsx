@@ -49,7 +49,7 @@ export function PaymentCountdown({
       <AlertDescription>
         {isExpired
           ? "A ordem foi cancelada automaticamente por falta de pagamento dentro do prazo."
-          : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} restantes — pague e clique em "Marquei que transferi" antes de zerar.`}
+          : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} restantes — pague e clique em "Já paguei — confirmar transferência" antes de zerar.`}
       </AlertDescription>
     </Alert>
   );

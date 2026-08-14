@@ -178,6 +178,9 @@ Backend (`marinsprosper-api`, repositório separado: <https://github.com/Marinsp
 - [ ] Painel de relatórios do Admin (`/admin/reports`) — GMV, receita da plataforma, lucro líquido, liquidez em custódia, funil de conversão #julia
 - [ ] Filtro de período padrão (`PeriodFilter`: hoje, 7d, 30d, 90d, YTD, custom) reaproveitado nas 3 telas #jose
 - [ ] Isolamento de dados nas 3 telas de relatório — cliente/caixeiro só veem as próprias ordens (`clientId`/`cashierId === user.id`, mesma checagem de `order-detail.tsx`), admin vê a plataforma inteira sem RBAC ainda (mesma ressalva já registrada em [[18 - Administração e Mediação]]) #jose
+- [ ] Painel de reputação da contraparte (`counterpartyStats`) e selo de risco (`riskAssessment`) no detalhe da ordem, reaproveitando os tokens `--status-*` já corrigidos pro tema escuro #julia
+- [ ] Validação de identidade do PIX no detalhe da ordem — compara `holderName` da chave com o nome cadastrado da contraparte, alerta de divergência ou confirmação discreta quando bate; `PixKey`/snapshots ganharam `holderName` #jose
+- [ ] Botões de copiar (titular, chave PIX, valor, documento, TXID) com feedback textual, card "Você paga"/"Você recebe" por papel/sentido da ordem, modal de checklist antes de "Já paguei — confirmar transferência" e aviso ao cancelar com pagamento já informado #julia
 
 
 
