@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import type { CancelRequester, Order, OrderType } from "@/types/order";
-import type { OrderQuote } from "./pricing";
 
 /**
  * "Backend" fake em memória — existe só pro protótipo (Sprint -1) ter
@@ -263,14 +262,6 @@ function seedOrders(): Order[] {
 }
 
 type OrdersAction =
-  | { type: "CREATE"; order: Order }
-  | {
-      type: "ACCEPT";
-      orderId: string;
-      cashierId: string;
-      cashierName: string;
-      cashierPixKeySnapshot?: { type: string; key: string; bank: string; holderName?: string };
-    }
   | { type: "CLIENT_TRANSFER"; orderId: string; proofName: string; proofUrl: string; proofMimeType: string }
   | { type: "CASHIER_CONFIRM_RECEIPT"; orderId: string }
   | { type: "CASHIER_TRANSFER"; orderId: string; txid: string }
@@ -314,18 +305,6 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
     });
 
   switch (action.type) {
-    case "CREATE":
-      return [action.order, ...state];
-
-    case "ACCEPT":
-      return patch(action.orderId, ["OPEN"], {
-        status: "AWAITING_CLIENT_TRANSFER",
-        cashierId: action.cashierId,
-        cashierName: action.cashierName,
-        cashierPixKeySnapshot: action.cashierPixKeySnapshot,
-        paymentDeadline: new Date(Date.now() + PAYMENT_SLA_MS).toISOString(),
-      });
-
     case "CLIENT_TRANSFER":
       return patch(action.orderId, ["AWAITING_CLIENT_TRANSFER"], {
         status: "AWAITING_CASHIER_CONFIRMATION",
@@ -411,21 +390,6 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
 
 interface MockOrdersContextValue {
   orders: Order[];
-  createOrder: (input: {
-    type: OrderType;
-    paymentMethod: string;
-    grossAmount: number;
-    quote: OrderQuote;
-    clientId: string;
-    clientName: string;
-    clientPixKeySnapshot: { type: string; key: string; bank: string; holderName?: string };
-  }) => Order;
-  acceptOrder: (
-    orderId: string,
-    cashierId: string,
-    cashierName: string,
-    cashierPixKeySnapshot?: { type: string; key: string; bank: string; holderName?: string },
-  ) => void;
   markClientTransferred: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
   confirmCashierReceipt: (orderId: string) => void;
   markCashierTransferred: (orderId: string, txid: string) => void;
@@ -446,40 +410,6 @@ const MockOrdersContext = createContext<MockOrdersContextValue | null>(null);
 export function MockOrdersProvider({ children }: { children: ReactNode }) {
   const [orders, dispatch] = useReducer(ordersReducer, undefined, seedOrders);
 
-  const createOrder: MockOrdersContextValue["createOrder"] = useCallback((input) => {
-    const order: Order = {
-      id: `order-${crypto.randomUUID()}`,
-      publicId: nextPublicId(),
-      type: input.type,
-      asset: "USDT",
-      network: "TRC20",
-      fiatCurrency: "BRL",
-      paymentMethod: input.paymentMethod,
-      grossAmount: input.grossAmount,
-      quote: input.quote.quote,
-      feePercent: input.quote.feePercent,
-      feeAmount: input.quote.feeAmount,
-      netAmount: input.quote.netAmount,
-      status: "OPEN",
-      clientId: input.clientId,
-      clientName: input.clientName,
-      clientPixKeySnapshot: input.clientPixKeySnapshot,
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    dispatch({ type: "CREATE", order });
-    return order;
-  }, []);
-
-  const acceptOrder = useCallback(
-    (
-      orderId: string,
-      cashierId: string,
-      cashierName: string,
-      cashierPixKeySnapshot?: { type: string; key: string; bank: string; holderName?: string },
-    ) => dispatch({ type: "ACCEPT", orderId, cashierId, cashierName, cashierPixKeySnapshot }),
-    [],
-  );
   const markClientTransferred = useCallback(
     (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) =>
       dispatch({ type: "CLIENT_TRANSFER", orderId, proofName, proofUrl, proofMimeType }),
@@ -542,8 +472,6 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     <MockOrdersContext.Provider
       value={{
         orders,
-        createOrder,
-        acceptOrder,
         markClientTransferred,
         confirmCashierReceipt,
         markCashierTransferred,

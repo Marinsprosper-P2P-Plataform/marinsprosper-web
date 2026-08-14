@@ -19,9 +19,10 @@ import { Label } from "@/components/ui/label";
 import { PaymentCountdown } from "@/components/shared/payment-countdown";
 import { ProofLink } from "@/components/shared/proof-link";
 import { useMockOrders } from "@/lib/mock/orders";
-import { useMockPixKeys } from "@/lib/mock/pix-keys";
 import { useMockSession } from "@/lib/mock/session";
 import type { Order } from "@/types/order";
+import { acceptOrderRequest } from "@/lib/orders/api";
+import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
  * As 5 ações que efetivamente avançam a máquina de estados (aceitar,
@@ -183,12 +184,16 @@ function ActionCard({ title, children }: { title: string; children: React.ReactN
 
 function AcceptControl({ order }: { order: Order }) {
   const { user } = useMockSession();
-  const { acceptOrder } = useMockOrders();
-  const { pixKeys } = useMockPixKeys();
   const [accepting, setAccepting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const availableLimit = user.cashierAvailableLimit;
   const exceedsLimit = order.grossAmount > availableLimit;
 
+  // POST /orders/:id/accept real — sem fallback em mock (ver
+  // offer-list.tsx, mesmo card). `order.id` aqui ainda vem do "backend
+  // fake" em memória (GET /orders não está ligado), então bate 404 no
+  // backend real até a leitura também ser real; `accepted` é só
+  // feedback local de UI, não atualiza o status da ordem em lugar nenhum.
   async function handleAccept() {
     if (accepting) return;
     if (exceedsLimit) {
@@ -196,21 +201,27 @@ function AcceptControl({ order }: { order: Order }) {
       return;
     }
     setAccepting(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    const cashierPixKey = pixKeys.find((key) => key.userId === user.id);
-    acceptOrder(
-      order.id,
-      user.id,
-      user.name,
-      cashierPixKey && {
-        type: cashierPixKey.type,
-        key: cashierPixKey.key,
-        bank: cashierPixKey.bank,
-        holderName: cashierPixKey.holderName ?? user.name,
-      },
-    );
-    toast.success("Ordem aceita — caução reservada no contrato");
-    setAccepting(false);
+    try {
+      await acceptOrderRequest(order.id, generateIdempotencyKey());
+      toast.success("Ordem aceita — caução reservada no contrato");
+      setAccepted(true);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        toast.error(error.message || "Caução insuficiente ou limite excedido");
+      } else if (error instanceof ApiError && error.status === 404) {
+        toast.error(
+          "Esta ordem ainda não existe no backend real — a lista aqui é só demonstração até GET /orders ser ligado.",
+        );
+      } else if (error instanceof ApiNetworkError) {
+        toast.error(error.message);
+      } else if (error instanceof ApiError) {
+        toast.error(`Backend recusou o aceite: ${error.message}`);
+      } else {
+        toast.error("Não foi possível aceitar. Tente novamente.");
+      }
+    } finally {
+      setAccepting(false);
+    }
   }
 
   return (
@@ -218,8 +229,8 @@ function AcceptControl({ order }: { order: Order }) {
       <p className="text-muted-foreground text-sm">
         Limite disponível: {availableLimit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
       </p>
-      <Button onClick={handleAccept} disabled={accepting || exceedsLimit}>
-        {exceedsLimit ? "Excede seu limite" : "Aceitar ordem"}
+      <Button onClick={handleAccept} disabled={accepted || accepting || exceedsLimit}>
+        {accepted ? "Aceita" : exceedsLimit ? "Excede seu limite" : "Aceitar ordem"}
       </Button>
     </div>
   );

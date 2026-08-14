@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { OrderRulesDialog } from "./order-rules-dialog";
 import { quoteOrder, type OrderQuote } from "@/lib/mock/pricing";
-import { useMockOrders } from "@/lib/mock/orders";
 import { useMockPixKeys } from "@/lib/mock/pix-keys";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
@@ -23,14 +22,17 @@ import { createOrderRequest } from "@/lib/orders/api";
 import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
- * POST /orders — protótipo com dados fake. A taxa NUNCA é calculada
- * aqui: `quote` só existe depois de `quoteOrder()` responder, simulando
- * o papel do backend real (ver Parte 1, seção 3). Qualquer mudança nos
- * campos invalida a cotação atual, forçando um novo "round-trip".
+ * `POST /orders` real (`src/lib/orders/api.ts`) — a cotação em si
+ * (`quoteOrder`, `Você recebe`) ainda é local/fake, sem endpoint real
+ * de quote no backend ainda; `quote`/`rate` viajam pro backend como
+ * estão. Qualquer mudança nos campos invalida a cotação atual, forçando
+ * um novo "round-trip".
  *
  * Confirmar o formulário não cria a ordem direto — abre
  * `OrderRulesDialog` (regras de uso/caução/penalidades + reconfirmação
- * de senha), que é quem efetivamente chama `createOrder`.
+ * de senha), que é quem efetivamente chama a API. Sem fallback em mock:
+ * se o backend recusar, a ordem não é criada, ponto (ver
+ * [[21 - Integração com API Real]]).
  *
  * A ordem exige selecionar uma chave PIX já cadastrada em `/profile` —
  * a trava anti-triangulação deixa de existir só no momento do cadastro
@@ -43,7 +45,6 @@ import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
  */
 export default function NewOrderPage() {
   const router = useRouter();
-  const { createOrder } = useMockOrders();
   const { user } = useMockSession();
   const { pixKeys } = useMockPixKeys();
   const [quote, setQuote] = useState<OrderQuote | null>(null);
@@ -112,13 +113,13 @@ export default function NewOrderPage() {
     // Chamada real ao backend (POST /orders) — testada e confirmada
     // contra o ambiente de teste (2026-08-14): 201 real, `side`/`asset`/
     // `assetAmount`/`rate`/`clientTronAddress`/`publish` batem certinho.
-    // `GET /orders`/`/orders/:id` ainda não estão ligados (bucket "Ordens
-    // & Ofertas" segue em andamento), então o resto da tela continua
-    // funcionando a partir do "backend fake" em memória (`createOrder`
-    // abaixo) até a leitura também ser real. Ver [[21 - Integração com
-    // API Real]].
+    // Sem fallback em mock: a ordem só existe se o backend aceitar.
+    // `GET /orders/:id` ainda não está ligado, então o redirect abaixo
+    // leva a uma tela que ainda mostra "Ordem não encontrada" — a ordem
+    // existe de verdade no backend, só a leitura no front que falta
+    // (ver [[21 - Integração com API Real]]).
     try {
-      await createOrderRequest(
+      const { data } = await createOrderRequest(
         {
           side: pendingOrder.type === "compra" ? "CLIENT_BUYS_ASSET" : "CLIENT_SELLS_ASSET",
           asset: "USDT",
@@ -130,32 +131,19 @@ export default function NewOrderPage() {
         },
         generateIdempotencyKey(),
       );
+      toast.success("Ordem criada");
+      setPendingOrder(null);
+      router.push(`/orders/${data.id}`);
     } catch (error) {
+      setPendingOrder(null);
       if (error instanceof ApiNetworkError) {
         toast.error(error.message);
       } else if (error instanceof ApiError) {
         toast.error(`Backend recusou a ordem: ${error.message}`);
+      } else {
+        toast.error("Não foi possível criar a ordem. Tente novamente.");
       }
-      // Não interrompe o fluxo do protótipo — segue criando a ordem
-      // local mesmo se a chamada real falhar (ver comentário acima).
     }
-
-    const order = createOrder({
-      type: pendingOrder.type,
-      paymentMethod: pendingOrder.paymentMethod,
-      grossAmount: pendingOrder.grossAmount,
-      quote,
-      clientId: user.id,
-      clientName: user.name,
-      clientPixKeySnapshot: {
-        type: selectedPixKey.type,
-        key: selectedPixKey.key,
-        bank: selectedPixKey.bank,
-        holderName: selectedPixKey.holderName ?? user.name,
-      },
-    });
-    toast.success("Ordem criada");
-    router.push(`/orders/${order.id}`);
   }
 
   if (myPixKeys.length === 0) {

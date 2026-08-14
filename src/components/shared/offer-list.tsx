@@ -6,8 +6,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OrderTypeBadge } from "@/components/shared/order-status-badge";
 import { ReputationStars } from "@/components/shared/reputation-stars";
-import { useMockOrders } from "@/lib/mock/orders";
-import { useMockPixKeys } from "@/lib/mock/pix-keys";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL } from "@/lib/mock/format";
 import { getUserReputation } from "@/lib/mock/reputation";
@@ -24,10 +22,13 @@ import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
  * indica o tipo em cada linha.
  */
 export function OfferList({ orders }: { orders: Order[] }) {
-  const { acceptOrder } = useMockOrders();
-  const { pixKeys } = useMockPixKeys();
   const { user } = useMockSession();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  // Ids aceitos com sucesso no backend real nesta sessão de navegação —
+  // só pra feedback visual do botão; a lista em si (`orders`) continua
+  // vindo do mock até `GET /orders` existir, então a ordem some daqui
+  // só quando a leitura real também estiver ligada.
+  const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const availableLimit = user.cashierAvailableLimit;
 
   async function handleAccept(orderId: string, grossAmount: number) {
@@ -41,40 +42,33 @@ export function OfferList({ orders }: { orders: Order[] }) {
 
     // Chamada real ao backend (POST /orders/:id/accept) — testada e
     // confirmada contra o ambiente de teste (2026-08-14), incluindo o
-    // próprio 422 de espelho de colateral desatualizado que este catch
-    // trata. `GET /orders` ainda não está ligado, então os ids de
-    // `orders` aqui continuam sendo do "backend fake" em memória e vão
-    // bater 404 contra a API real até a listagem também ser real — 422
-    // (caução insuficiente/limite excedido/espelho vencido) é o único
-    // caso que já vale mostrar pro usuário como está, é exatamente o
-    // erro específico que o card pede pra não tratar como genérico.
+    // próprio 422 de espelho de colateral desatualizado tratado abaixo.
+    // Sem fallback em mock: `orders` aqui ainda vem do "backend fake" em
+    // memória (`GET /orders` não está ligado), então esses ids não
+    // existem de verdade no backend — qualquer aceite aqui bate 404 lá
+    // até a listagem também ficar real (ver [[21 - Integração com API
+    // Real]]).
     try {
       await acceptOrderRequest(orderId, generateIdempotencyKey());
+      toast.success("Ordem aceita — caução reservada no contrato");
+      setAcceptedIds((prev) => new Set(prev).add(orderId));
     } catch (error) {
       if (error instanceof ApiError && error.status === 422) {
         toast.error(error.message || "Caução insuficiente ou limite excedido");
+      } else if (error instanceof ApiError && error.status === 404) {
+        toast.error(
+          "Esta ordem ainda não existe no backend real — a lista aqui é só demonstração até GET /orders ser ligado.",
+        );
       } else if (error instanceof ApiNetworkError) {
-        console.warn("[offer-list] POST /orders/:id/accept (real) falhou por rede:", error);
+        toast.error(error.message);
       } else if (error instanceof ApiError) {
-        console.warn("[offer-list] POST /orders/:id/accept (real) falhou:", error);
+        toast.error(`Backend recusou o aceite: ${error.message}`);
+      } else {
+        toast.error("Não foi possível aceitar. Tente novamente.");
       }
-      // Não interrompe o fluxo do protótipo — segue aceitando localmente
-      // mesmo se a chamada real falhar (ver comentário acima).
+    } finally {
+      setAcceptingId(null);
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    // Snapshot da primeira chave PIX do caixeiro no momento do aceite —
-    // sem isso o cliente não saberia pra qual conta transferir numa
-    // ordem de compra (ver comentário em `Order.cashierPixKeySnapshot`).
-    const cashierPixKey = pixKeys.find((key) => key.userId === user.id);
-    acceptOrder(
-      orderId,
-      user.id,
-      user.name,
-      cashierPixKey && { type: cashierPixKey.type, key: cashierPixKey.key, bank: cashierPixKey.bank },
-    );
-    toast.success("Ordem aceita — caução reservada no contrato");
-    setAcceptingId(null);
   }
 
   if (orders.length === 0) {
@@ -86,6 +80,7 @@ export function OfferList({ orders }: { orders: Order[] }) {
       {orders.map((order) => {
         const isOwnOrder = order.clientId === user.id;
         const exceedsLimit = order.grossAmount > availableLimit;
+        const accepted = acceptedIds.has(order.id);
         const clientReputation = getUserReputation(orders, order.clientId);
 
         return (
@@ -121,10 +116,10 @@ export function OfferList({ orders }: { orders: Order[] }) {
               {!isOwnOrder && (
                 <Button
                   size="sm"
-                  disabled={acceptingId === order.id || exceedsLimit}
+                  disabled={accepted || acceptingId === order.id || exceedsLimit}
                   onClick={() => handleAccept(order.id, order.grossAmount)}
                 >
-                  {exceedsLimit ? "Excede limite" : "Aceitar"}
+                  {accepted ? "Aceita" : exceedsLimit ? "Excede limite" : "Aceitar"}
                 </Button>
               )}
             </div>
