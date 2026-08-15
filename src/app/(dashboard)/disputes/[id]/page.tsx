@@ -1,10 +1,10 @@
 import { DisputeDetailClient } from "./dispute-detail-client";
 
-export default async function AdminDisputeDetailPage({
+export default async function DisputeDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <DisputeDetailClient orderId={id} />;
+  return <DisputeDetailClient disputeId={id} />;
 }

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { OfferList } from "@/components/shared/offer-list";
 import { OrderStatusBadge, OrderTypeBadge } from "@/components/shared/order-status-badge";
-import { useMockSession } from "@/lib/mock/session";
+import { useAuth } from "@/lib/auth";
 import { formatBRL } from "@/lib/mock/format";
 import { presentOrderForFrontend } from "@/lib/orders/adapt";
 import { listOrdersRequest } from "@/lib/orders/api";
@@ -27,9 +27,14 @@ const FINALIZADAS_CATEGORIES: OrderStatusCategory[] = ["completed", "cancelled",
  * inline (ver `OfferList`) pra quem quer aceitar sem passar por uma
  * oferta publicada (`/offers`, que lista `Listing` — anúncios
  * persistentes, ainda mock, ver [[14 - Ofertas e Ordens]]).
+ *
+ * `viewerId` vem do JWT real (`useAuth`) — comparar contra a identidade
+ * mock do `AccountSwitcher` fazia "Como cliente"/"Como caixeiro" e a
+ * separação Disponível/Em execução baterem errado pra ordens reais.
  */
 export default function OrdersPage() {
-  const { user } = useMockSession();
+  const { user } = useAuth();
+  const viewerId = user?.id ?? "";
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +55,7 @@ export default function OrdersPage() {
       try {
         const { data } = await listOrdersRequest();
         if (cancelled) return;
-        setOrders(data.map((raw) => presentOrderForFrontend(raw, user.id)));
+        setOrders(data.map((raw) => presentOrderForFrontend(raw, viewerId)));
         setError(null);
       } catch (err) {
         if (cancelled) return;
@@ -65,13 +70,13 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [user.id, refetchToken]);
+  }, [viewerId, refetchToken]);
 
   const openOrders = useMemo(() => orders.filter((order) => order.status === "OPEN"), [orders]);
 
   const myOrders = useMemo(
-    () => orders.filter((order) => order.clientId === user.id || order.cashierId === user.id),
-    [orders, user.id],
+    () => orders.filter((order) => order.clientId === viewerId || order.cashierId === viewerId),
+    [orders, viewerId],
   );
 
   const execucaoOrders = useMemo(
@@ -129,10 +134,10 @@ export default function OrdersPage() {
 
           {isDisponivel && <OfferList orders={openOrders} onAccepted={refetch} />}
           {isExecucao && (
-            <MyOrdersList orders={execucaoOrders} userId={user.id} emptyLabel="Nenhuma ordem em execução." />
+            <MyOrdersList orders={execucaoOrders} userId={viewerId} emptyLabel="Nenhuma ordem em execução." />
           )}
           {isFinalizadas && (
-            <MyOrdersList orders={finalizadasOrders} userId={user.id} emptyLabel="Nenhuma ordem finalizada ainda." />
+            <MyOrdersList orders={finalizadasOrders} userId={viewerId} emptyLabel="Nenhuma ordem finalizada ainda." />
           )}
         </>
       )}

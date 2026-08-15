@@ -262,8 +262,6 @@ function seedOrders(): Order[] {
 }
 
 type OrdersAction =
-  | { type: "REVIEW_DISPUTE"; orderId: string }
-  | { type: "RESOLVE_DISPUTE"; orderId: string }
   | { type: "FREEZE_ORDER"; orderId: string; reason: string }
   | { type: "UNFREEZE_ORDER"; orderId: string };
 
@@ -296,14 +294,6 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
     });
 
   switch (action.type) {
-    case "REVIEW_DISPUTE":
-      return patch(action.orderId, ["DISPUTE_OPEN"], { status: "DISPUTE_UNDER_REVIEW" });
-
-    case "RESOLVE_DISPUTE":
-      return patch(action.orderId, ["DISPUTE_OPEN", "DISPUTE_UNDER_REVIEW"], {
-        status: "DISPUTE_RESOLVED",
-      });
-
     case "FREEZE_ORDER":
       return patch(action.orderId, CANCELLABLE_STATUSES, (order) => ({
         status: "FROZEN_FOR_AUDIT",
@@ -325,8 +315,6 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
 
 interface MockOrdersContextValue {
   orders: Order[];
-  reviewDispute: (orderId: string) => void;
-  resolveDispute: (orderId: string) => void;
   freezeOrder: (orderId: string, reason: string) => void;
   unfreezeOrder: (orderId: string) => void;
 }
@@ -336,14 +324,6 @@ const MockOrdersContext = createContext<MockOrdersContextValue | null>(null);
 export function MockOrdersProvider({ children }: { children: ReactNode }) {
   const [orders, dispatch] = useReducer(ordersReducer, undefined, seedOrders);
 
-  const reviewDispute = useCallback(
-    (orderId: string) => dispatch({ type: "REVIEW_DISPUTE", orderId }),
-    [],
-  );
-  const resolveDispute = useCallback(
-    (orderId: string) => dispatch({ type: "RESOLVE_DISPUTE", orderId }),
-    [],
-  );
   const freezeOrder = useCallback(
     (orderId: string, reason: string) => dispatch({ type: "FREEZE_ORDER", orderId, reason }),
     [],
@@ -357,8 +337,6 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     <MockOrdersContext.Provider
       value={{
         orders,
-        reviewDispute,
-        resolveDispute,
         freezeOrder,
         unfreezeOrder,
       }}

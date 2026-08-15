@@ -9,7 +9,10 @@ export interface ApiFetchOptions {
   method?: HttpMethod;
   /** Corpo serializado como JSON. Campos monetários devem chegar aqui já
    * como string decimal (`Decimal` em `./types`) — este cliente nunca
-   * converte number↔string, só repassa o corpo. */
+   * converte number↔string, só repassa o corpo. `FormData` passa direto,
+   * sem `JSON.stringify` nem `Content-Type` manual (o browser define o
+   * boundary do multipart sozinho) — único jeito de mandar arquivo
+   * (evidência de disputa, `POST /disputes/:id/evidence`). */
   body?: unknown;
   /** Só as rotas marcadas ⚡ em [[21 - Integração com API Real]] §3
    * exigem isto (escritas financeiras) — as demais escritas (ex. auth)
@@ -54,10 +57,12 @@ export async function apiFetch<T>(
 ): Promise<ApiFetchResult<T>> {
   const { method = "GET", body, idempotencyKey, accessTokenOverride, signal } = options;
 
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
-  if (body !== undefined) {
+  if (body !== undefined && !isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -75,7 +80,7 @@ export async function apiFetch<T>(
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
       signal,
     });
   } catch (cause) {

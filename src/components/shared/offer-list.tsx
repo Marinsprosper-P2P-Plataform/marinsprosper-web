@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OrderTypeBadge } from "@/components/shared/order-status-badge";
 import { ReputationStars } from "@/components/shared/reputation-stars";
+import { useAuth } from "@/lib/auth";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL } from "@/lib/mock/format";
-import { getUserReputation } from "@/lib/mock/reputation";
+import type { Reputation } from "@/lib/mock/reputation";
 import type { Order } from "@/types/order";
 import { acceptOrderRequest } from "@/lib/orders/api";
+import { getUserReputationRequest } from "@/lib/ratings/api";
 import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
@@ -20,16 +22,63 @@ import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
  * esta lista continua existindo aqui pra quem cria ordem direto, sem
  * passar por uma oferta. Sem separação por Comprar/Vender —
  * `OrderTypeBadge` indica o tipo em cada linha.
+ *
+ * Identidade de "é minha ordem" vem do JWT real (`useAuth`) — comparar
+ * contra `useMockSession` fazia toda ordem real esconder o botão errado
+ * (achado registrado no [[Kanban]]). Limite disponível pra aceitar
+ * continua vindo do mock (`cashierAvailableLimit`) — ainda não existe
+ * `GET /cashier/limit` real ligado.
  */
 export function OfferList({ orders, onAccepted }: { orders: Order[]; onAccepted?: () => void }) {
-  const { user } = useMockSession();
+  const { user } = useAuth();
+  const viewerId = user?.id ?? "";
+  const { user: mockUser } = useMockSession();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   // Feedback visual imediato do botão, antes do pai recarregar a lista
   // via `onAccepted` (`GET /orders` real não empurra atualização —
   // sem isso a ordem continuaria aparecendo como "Aceitar" até o
   // próximo carregamento manual da página).
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
-  const availableLimit = user.cashierAvailableLimit;
+  const availableLimit = mockUser.cashierAvailableLimit;
+
+  // `GET /users/:id/ratings` real, uma vez por cliente distinto na lista
+  // (não por linha renderizada) — aposenta `getUserReputation` local
+  // pra esta tela. Falha isolada por conta vira "sem avaliações", não
+  // quebra a lista inteira.
+  const [reputations, setReputations] = useState<Map<string, Reputation | null>>(new Map());
+  // Ids já buscados (ou em busca) — em `ref`, não em `state`, pra não
+  // disparar o próprio efeito de novo a cada resposta.
+  const requestedIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    const clientIds = Array.from(new Set(orders.map((order) => order.clientId)));
+    const missing = clientIds.filter((id) => !requestedIds.current.has(id));
+    if (missing.length === 0) return;
+    for (const id of missing) requestedIds.current.add(id);
+
+    let cancelled = false;
+    Promise.all(
+      missing.map(async (clientId) => {
+        try {
+          const { data } = await getUserReputationRequest(clientId);
+          return [clientId, data.count > 0 ? { average: data.average ?? 0, count: data.count } : null] as const;
+        } catch {
+          return [clientId, null] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+      setReputations((prev) => {
+        const next = new Map(prev);
+        for (const [clientId, reputation] of entries) next.set(clientId, reputation);
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orders]);
 
   async function handleAccept(orderId: string, grossAmount: number) {
     if (acceptingId) return; // trava por clique duplo — idempotência na UI
@@ -72,10 +121,10 @@ export function OfferList({ orders, onAccepted }: { orders: Order[]; onAccepted?
   return (
     <ul className="flex flex-col gap-3">
       {orders.map((order) => {
-        const isOwnOrder = order.clientId === user.id;
+        const isOwnOrder = order.clientId === viewerId;
         const exceedsLimit = order.grossAmount > availableLimit;
         const accepted = acceptedIds.has(order.id);
-        const clientReputation = getUserReputation(orders, order.clientId);
+        const clientReputation = reputations.get(order.clientId) ?? null;
 
         return (
           <li

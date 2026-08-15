@@ -8,11 +8,14 @@ import { OrderTimeline } from "@/components/shared/order-timeline";
 import { OrderActions } from "@/components/shared/order-actions";
 import { OrderResolutionPanel } from "@/components/shared/order-resolution-panel";
 import { OrderChat } from "@/components/shared/order-chat";
-import { useMockSession } from "@/lib/mock/session";
+import { ReputationStars } from "@/components/shared/reputation-stars";
+import { useAuth } from "@/lib/auth";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
+import type { Reputation } from "@/lib/mock/reputation";
 import { presentOrderForFrontend } from "@/lib/orders/adapt";
 import { getOrderRequest } from "@/lib/orders/api";
 import type { BackendOrder } from "@/lib/orders/types";
+import { getUserReputationRequest } from "@/lib/ratings/api";
 import { ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
@@ -22,11 +25,18 @@ import { ApiError, ApiNetworkError } from "@/lib/api";
  * sua", de propósito (o mesmo endpoint não pode virar um oráculo de
  * quais ordens existem). Nome de contraparte, comprovante e snapshot de
  * chave PIX ainda não têm de onde vir na API real — ver
- * `presentOrderForFrontend` (`src/lib/orders/adapt.ts`) e
- * [[14 - Ofertas e Ordens]].
+ * `presentOrderForFrontend` (`src/lib/orders/adapt.ts`). Reputação da
+ * contraparte já vem real (`GET /users/:id/ratings`), mesmo sem nome
+ * pra acompanhar. Ver
+ * [[14 - Ofertas e Ordens]]. `viewerId` vem do JWT real (`useAuth`), não
+ * de `useMockSession` — comparar `order.clientId`/`cashierId` contra a
+ * identidade "vista como" do `AccountSwitcher` fazia toda ordem real
+ * mostrar os controles do papel errado (achado registrado no
+ * [[Kanban]], corrigido aqui).
  */
 export function OrderDetail({ orderId }: { orderId: string }) {
-  const { user } = useMockSession();
+  const { user } = useAuth();
+  const viewerId = user?.id ?? "";
   const [order, setOrder] = useState<BackendOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +45,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
   // de busca fora do efeito.
   const [refetchToken, setRefetchToken] = useState(0);
   const refetch = () => setRefetchToken((token) => token + 1);
+  const [counterpartyReputation, setCounterpartyReputation] = useState<Reputation | null>(null);
 
   // `loading` só cobre a primeira carga (inicia `true`) — um refetch
   // atualiza a ordem sem esconder o que já estava na tela.
@@ -66,6 +77,31 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     };
   }, [orderId, refetchToken]);
 
+  // Reputação da contraparte — `GET /users/:id/ratings` real, só quando
+  // já existe alguém do outro lado (`cashierId` preenchido, ordem já
+  // aceita) e a conta não é a própria.
+  useEffect(() => {
+    const counterpartyId = order?.clientId === viewerId ? order?.cashierId : order?.clientId;
+    // Sem contraparte ainda (ordem `OPEN`, sem caixeiro): estado inicial
+    // já é `null`, nada a fazer — `cashierId` nunca "desaparece" depois
+    // de setado, então não há caso real de precisar limpar de novo aqui.
+    if (!counterpartyId) return;
+
+    let cancelled = false;
+    getUserReputationRequest(counterpartyId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setCounterpartyReputation(data.count > 0 ? { average: data.average ?? 0, count: data.count } : null);
+      })
+      .catch(() => {
+        if (!cancelled) setCounterpartyReputation(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [order?.clientId, order?.cashierId, viewerId]);
+
   if (loading) {
     return <p className="text-muted-foreground p-4 text-sm">Carregando...</p>;
   }
@@ -81,8 +117,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     );
   }
 
-  const frontendOrder = presentOrderForFrontend(order, user.id);
-  const isParticipant = order.clientId === user.id || order.cashierId === user.id;
+  const frontendOrder = presentOrderForFrontend(order, viewerId);
+  const isParticipant = order.clientId === viewerId || order.cashierId === viewerId;
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -108,14 +144,17 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           {formatUSDT(frontendOrder.netAmount)} · {frontendOrder.paymentMethod}
         </p>
         {frontendOrder.cashierName && (
-          <p className="text-muted-foreground text-sm">{frontendOrder.cashierName}</p>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">{frontendOrder.cashierName}</span>
+            <ReputationStars reputation={counterpartyReputation} emptyLabel="Sem avaliações" className="text-xs" />
+          </div>
         )}
       </div>
 
       <OrderTimeline status={frontendOrder.status} lastMainlineStatus={frontendOrder.previousMainlineStatus} />
 
-      <OrderActions order={order} viewerId={user.id} onUpdated={setOrder} />
-      <OrderResolutionPanel order={order} viewerId={user.id} onUpdated={setOrder} onDisputeOpened={refetch} />
+      <OrderActions order={order} viewerId={viewerId} onUpdated={setOrder} />
+      <OrderResolutionPanel order={order} viewerId={viewerId} onUpdated={setOrder} onDisputeOpened={refetch} />
 
       {/* Chat só faz sentido entre as duas partes já ligadas à ordem —
        * um caixeiro só olhando uma oferta OPEN pra decidir se aceita
