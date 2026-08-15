@@ -14,12 +14,12 @@ import { acceptOrderRequest } from "@/lib/orders/api";
 import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
 
 /**
- * Listagem de ordens `OPEN` com aceite — reaproveitada em `/offers` e na
- * sub-aba "Disponível" de `/orders`, já que as duas mostram exatamente a
- * mesma coisa (ver `[[Kanban]]`, bucket Ofertas & Ordens: a aba
- * Disponível deixou de navegar pra `/offers` e passou a renderizar a
- * lista inline). Sem separação por Comprar/Vender — `OrderTypeBadge`
- * indica o tipo em cada linha.
+ * Listagem de ordens `OPEN` com aceite — usada na sub-aba "Disponível"
+ * de `/orders`. `/offers` deixou de mostrar ordens avulsas e agora lista
+ * `Listing` (anúncios persistentes negociáveis — ver `ListingWizard`);
+ * esta lista continua existindo aqui pra quem cria ordem direto, sem
+ * passar por uma oferta. Sem separação por Comprar/Vender —
+ * `OrderTypeBadge` indica o tipo em cada linha.
  */
 export function OfferList({ orders }: { orders: Order[] }) {
   const { user } = useMockSession();

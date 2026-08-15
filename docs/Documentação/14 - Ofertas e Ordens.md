@@ -124,3 +124,34 @@ Rodada seguinte, ainda Sprint -1/dados fake, focada em dar mais sinal de confian
 - **Aviso ao cancelar com pagamento já informado** — `CancelDialog` (`order-resolution-panel.tsx`) ganhou um `alreadyPaid` calculado a partir de uma nova lista `ALREADY_PAID_STATUSES` (de `CLIENT_MARKED_TRANSFERRED` até `AWAITING_CLIENT_CONFIRMATION`) — a partir daí, abrir o modal de cancelamento mostra um alerta vermelho antes do campo de motivo, avisando que cancelar não desfaz uma transferência que já aconteceu e que o caminho certo nesse ponto é disputa.
 
 Testado manualmente em dev: `order-6` (Ana como cliente) mostra o alerta de divergência de titular, o painel de reputação de Beto Lima com selo de risco e o card BRL/USDT; `order-3` (mesma chave, nomes batendo) mostra "Titular confere"; `CancelDialog` em `order-3` (status `AWAITING_CASHIER_CONFIRMATION`, já com comprovante anexado) mostra o alerta de "pagamento já informado". Isolado via `git stash -u` que o erro de hidratação do console (já registrado na seção acima) é do ambiente, não desta mudança — reproduz igual em `order-1` na branch `main` sem nenhuma linha nova. `npx tsc --noEmit` e `npx eslint` (nos arquivos tocados) sem erros.
+
+## Ofertas (`Listing`) — anúncio persistente, separado de ordem avulsa
+
+Feature nova, pedida diretamente pelo usuário como um wizard de 9 etapas: `/offers` deixou de listar ordens `OPEN` avulsas (ver seção "Redesign" acima) e passou a listar `Listing` — um anúncio que o dono publica e mantém, com limites/termos/mensagem de boas-vindas próprios, que outras contas negociam. A antiga listagem de ordens `OPEN` continua existindo (`OfferList`), só que restrita à sub-aba "Disponível" de `/orders` — quem quer aceitar uma ordem solta, sem passar por um anúncio publicado, ainda consegue.
+
+**Decisão de arquitetura, confirmada com o usuário antes de implementar**: não existe endpoint de ofertas no backend (só `/orders`, auth). Como os últimos commits deste repositório foram justamente sobre *remover* mock de ordens em favor da API real (ver "Concluído" no [[Kanban]], cards de criação/aceite), criar mais um mock parecia ir na direção contrária — mas como não há endpoint nenhum pra migrar, a alternativa (não construir a feature) também não servia. Resolvido assim:
+
+- **`Listing` e `PaymentMethod` são 100% mock/local** (`src/lib/mock/listings.tsx`, `src/lib/mock/payment-methods.tsx`), mesmo padrão Context+`useReducer` idempotente de `orders.tsx`/`pix-keys.tsx` — sem persistência entre recarregamentos, sem chamada de rede nenhuma. `PaymentMethod` é separado de `PixKey` (`pix-keys.tsx`, usado no perfil) porque cobre também transferência bancária (banco/agência/conta/chave), e é um cadastro específico do wizard de ofertas.
+- **Negociar uma oferta cria uma ORDEM real** (`ListingNegotiateDialog`, `src/components/shared/listing-negotiate-dialog.tsx`) — chama exatamente o mesmo `createOrderRequest` (`POST /orders`) de `orders/new/page.tsx`, só pré-preenchido a partir da oferta (cotação/quantidade). O backend não modela "ordem já combinada com contraparte fixa e taxa zero" (o que o dono da oferta cobrou já foi embutido na comissão da própria oferta, não pode ser repassado pra ordem); a ordem resultante segue as regras normais — fica aberta pra qualquer caixeiro aceitar, com a cotação/taxa reais de `quoteOrder`. A oferta funciona só como atalho de preenchimento, não como um contrato à parte.
+
+### `ListingWizard` (`src/components/shared/listing-wizard.tsx`) — 9 etapas
+
+Um componente só, reaproveitado pra criar (`/offers/new`) e editar (`/offers/[id]/edit`) — estado local (`useState<WizardState>`), sem `react-hook-form` (multi-step com validação por etapa ficou mais simples com estado bruto + `wizardStepValid(step, state)` checando cada etapa antes de liberar "Avançar"):
+
+1. **Operação** — compra ou venda (dois botões, mesmo padrão de cor de `OrderTypeBadge`)
+2. **Moeda + método de pagamento** — moeda fixa (`USDT`, único ativo negociado na plataforma); método de pagamento escolhido entre os já cadastrados ou cadastro inline (PIX ou transferência com banco/agência/conta/chave), salvo em `payment-methods.tsx` e auto-selecionado
+3. **Cotação** — BRL por USDT, decimal; toggle "Não aceito negociação com terceiros" (`noThirdParty`, só informativo — o protótipo não tem como verificar terceiros de verdade)
+4. **Limites** — quantidade total, mínimo e máximo por solicitação, validados por `listingLimitsSchema` (`src/lib/validations/listing.ts`): mínimo ≤ máximo ≤ total
+5. **Termos** — texto livre
+6. **Boas-vindas** — mensagem opcional, mostrada automaticamente no `ListingNegotiateDialog` de quem negociar
+7. **Visibilidade** — pública (aparece na listagem) ou privada (só quem tem o link/id direto)
+8. **Resumo** — moeda, mínimo/máximo em USDT e BRL, comissão da plataforma (`platformFeePercent`, padrão 0,25%) sobre `totalQuantity × quote`, segurança (terceiros), visibilidade
+9. **Confirmação por senha** — demo fixa `1234` (mesmo espírito de `OrderRulesDialog`, sem conta real pra checar contra ainda), só então publica (`addListing`) ou salva (`updateListing`) e redireciona pra `/offers`
+
+Editar reconstrói o wizard a partir do `Listing` existente (`wizardFromListing`), só permitido enquanto a oferta está `ATIVA`/`PAUSADA` — `CANCELADA`/`ENCERRADA` são terminais. Qualquer conta atual pode publicar (sem gate de papel), mesma simplificação já registrada pra ordens — `useMockSession` já dá as duas capacidades pra toda conta.
+
+### Ações do dono (`/offers`)
+
+Pausar/Reativar/Cancelar/Encerrar como ações do reducer de `listings.tsx`, cada uma checando o status anterior antes de escrever (mesmo princípio de idempotência de `orders.tsx`). Não-donos só veem "Negociar" em ofertas `ATIVA` e públicas (ou a própria oferta, se privada mas dona).
+
+Testado manualmente em dev: wizard completo (9 etapas, incluindo cadastro inline de método PIX e transferência), validação bloqueando avanço com dados inválidos, resumo calculando taxa corretamente (`1000 × 5,5 × 0,25% = R$ 13,75`), senha errada rejeitada/`1234` aceita, oferta publicada aparecendo em `/offers` com as ações certas, edição pré-preenchendo o wizard a partir de uma oferta existente, diálogo de negociação abrindo com a direção certa (dono vende → quem negocia compra) e mensagem de boas-vindas visível. `npx tsc --noEmit` (projeto inteiro) e `npx eslint` (arquivos tocados) sem erros.

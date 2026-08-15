@@ -18,11 +18,12 @@ const EXECUCAO_CATEGORIES: OrderStatusCategory[] = ["open", "progress", "dispute
 const FINALIZADAS_CATEGORIES: OrderStatusCategory[] = ["completed", "cancelled", "expired"];
 
 /** GET /orders — 3 tiles no topo (Disponível / Em execução / Finalizadas)
- * em vez de uma lista única. "Disponível" é a mesma listagem pública de
- * `/offers` renderizada inline (ver `OfferList`), não uma navegação —
- * evita o usuário ter que sair de "Minhas ordens" só pra aceitar uma
- * oferta nova. "Em execução"/"Finalizadas" continuam restritas às
- * ordens onde a conta é participante (cliente e/ou caixeiro). */
+ * em vez de uma lista única. "Disponível" lista ordens `OPEN` avulsas
+ * inline (ver `OfferList`) pra quem quer aceitar sem passar por uma
+ * oferta publicada (`/offers`, que agora lista `Listing` — anúncios
+ * persistentes negociáveis, ver `ListingWizard`). "Em execução"/
+ * "Finalizadas" continuam restritas às ordens onde a conta é
+ * participante (cliente e/ou caixeiro). */
 export default function OrdersPage() {
   const { orders } = useMockOrders();
   const { user } = useMockSession();
