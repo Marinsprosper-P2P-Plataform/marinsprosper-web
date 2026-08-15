@@ -68,3 +68,27 @@ Espelha o fluxo de depósito, na direção contrária:
 3. Após ~8s, confirmação automática: `Pendente de retirada` volta a 0, `Retirado` sobe pra 1.700 USDT (1.200 do seed + 500 do saque)
 
 `npm run lint` e `npx tsc --noEmit` sem erros.
+
+## `/wallet` — API real (Sprint 4)
+
+Rodada de integração: `GET /cashier/collateral`, `POST /cashier/collateral/deposit-address`, `POST /cashier/collateral/sync` e `GET /cashier/limit` substituem `src/lib/mock/collateral.tsx` só em `/wallet` (o mock continua existindo — `/reports`, `/admin/reports` e `dashboard.ts` ainda o usam, bucket "Relatórios & Ganhos" não migrado).
+
+### O modelo real é mais simples que os 7 baldes do protótipo
+
+Sem "reservado/bloqueado/em análise/usado em ressarcimento/pendente de retirada/retirado" — só **`free`** e **`locked`** (`CashierCollateral`, `src/lib/cashier/types.ts`), mais metadados que o mock não tinha: `mirrorAgeSeconds` (idade da leitura em segundos — o backend recusa aceite de ordem com espelho vencido, >5 min, e a tela agora mostra esse aviso na cor certa) e `pendingMovements` (intenções de custódia — `LOCK`/`RELEASE`/`REFUND` — já registradas no banco mas ainda sem confirmação on-chain, cada uma com `onChainTxHash` quando existir).
+
+### Depósito inverte de direção
+
+`deposit-dialog.tsx` reescrito: não existe mais um endereço gerado exibido pra "enviar". Quem registra o endereço é o cashier — o próprio, de onde ele vai mandar o colateral — e o backend devolve pra onde enviar (`contractAddress`, o mesmo endereço de custódia pra todo mundo, porque na TRON quem separa um depósito do outro é o remetente, não um endereço por conta). Reenviar o mesmo endereço já registrado é idempotente (mostra o destino de novo); trocar de endereço depois de registrado dá 409 ("exige reconciliação manual").
+
+### "Atualizar saldo" (`sync`)
+
+Item do Kanban resolvido: botão que chama `POST /cashier/collateral/sync`, relê o saldo no contrato e atualiza o espelho — existe justamente pra quando o aceite de ordem começa a recusar por leitura vencida (`mirrorAgeSeconds` alto).
+
+### Sem saque
+
+`POST /cashier/collateral/withdraw` **não existe no backend** — confirmado (nenhuma rota de saque no módulo `cashier`, nem em nenhum outro). O botão "Solicitar saque"/`WithdrawDialog` da versão mock foi removido de `/wallet`; o fluxo de saque simulado (seção acima) documenta uma funcionalidade que só existirá quando o backend expuser o endpoint — segue registrado como bloqueado no [[Kanban]], não implementado contra a API real.
+
+### Testado contra o ambiente de teste (`cashier@teste.local`)
+
+`GET /cashier/collateral` carregando saldo real (`Livre: 10.000 USDT`, endereço já registrado), aviso de espelho vencido correto (idade em segundos alta, texto em vermelho), seção de limite (`GET /cashier/limit`: min/max por ordem, ordens abertas/máximo, volume diário restante), movimento pendente real (`30 USDT · Estornado`, aguardando confirmação on-chain). "Atualizar saldo" chamado de verdade: `mirrorAgeSeconds` voltou a 0 e o saldo `Livre` recalculou pra 0 (reflexo real do contrato de teste, sem colateral de fato depositado nele). `npx tsc --noEmit` (projeto inteiro), `npx eslint src` e `npx next build` sem erros.

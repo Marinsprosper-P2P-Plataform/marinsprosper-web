@@ -16,94 +16,140 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TRON_ADDRESS_PATTERN } from "@/lib/validations/order";
+import { registerDepositAddressRequest } from "@/lib/cashier/api";
+import type { DepositAddressResponse } from "@/lib/cashier/types";
+import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
+
+function describeApiError(error: unknown, fallback: string) {
+  if (error instanceof ApiNetworkError) return error.message;
+  if (error instanceof ApiError) return error.message || fallback;
+  return fallback;
+}
 
 /**
- * GET /cashier/collateral/deposit-address — protótipo com dados fake.
- * O endereço é só exibido; "Simular depósito" chama `initiateDeposit`,
- * que joga o valor pra "em análise" até a confirmação on-chain simulada
- * (ver `src/lib/mock/collateral.tsx`). Nenhum valor sai daqui sem passar
- * por esse estado de espera — é o ponto principal deste card do Kanban.
+ * `POST /cashier/collateral/deposit-address` real — o fluxo se inverte
+ * em relação ao protótipo mock: não existe endereço gerado por
+ * cashier, o destino (`contractAddress`) é o mesmo pra todo mundo (o
+ * contrato de custódia). O cashier registra a própria origem, e é o
+ * remetente que o contrato credita (`msg.sender`) — reenviar o MESMO
+ * endereço é idempotente e devolve a mesma resposta de novo; trocar de
+ * endereço depois de já ter um registrado dá 409 (exige reconciliação
+ * manual, não é uma troca livre).
  */
 export function DepositDialog({
-  depositAddress,
-  onDeposit,
+  registeredAddress,
+  onRegistered,
 }: {
-  depositAddress: string;
-  onDeposit: (amount: number) => void;
+  registeredAddress: string | null;
+  onRegistered: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState("");
+  const [tronAddress, setTronAddress] = useState(registeredAddress ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<DepositAddressResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const parsedAmount = Number(amount);
-  const canSubmit = amount.trim() !== "" && parsedAmount > 0;
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(depositAddress);
-    toast.success("Endereço copiado");
-  }
+  const canSubmit = TRON_ADDRESS_PATTERN.test(tronAddress.trim());
 
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    onDeposit(parsedAmount);
-    toast.success("Depósito simulado — aguardando confirmação on-chain");
-    setSubmitting(false);
-    setOpen(false);
-    setAmount("");
+    setError(null);
+    try {
+      const { data } = await registerDepositAddressRequest(
+        { tronAddress: tronAddress.trim() },
+        generateIdempotencyKey(),
+      );
+      setResult(data);
+      onRegistered();
+    } catch (err) {
+      setError(describeApiError(err, "Não foi possível registrar o endereço."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCopy(value: string) {
+    await navigator.clipboard.writeText(value);
+    toast.success("Copiado");
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setResult(null);
+          setError(null);
+        }
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="sm">Depositar caução</Button>
+        <Button size="sm">{registeredAddress ? "Ver endereço de depósito" : "Registrar endereço"}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Depósito de USDT (TRC20)</DialogTitle>
           <DialogDescription>
-            Envie só USDT na rede TRC20 pra este endereço. Endereço errado ou rede errada
-            significa perda de fundos — não há como reverter.
+            Registre o endereço TRON de onde você vai enviar o colateral — o contrato credita quem
+            envia, então um depósito de outro endereço não é atribuído à sua conta.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="deposit-address">Endereço de depósito</Label>
-            <div className="flex items-center gap-2">
-              <Input id="deposit-address" readOnly value={depositAddress} className="font-mono text-xs" />
-              <Button type="button" variant="outline" size="icon" onClick={handleCopy} aria-label="Copiar endereço">
-                <CopyIcon className="size-4" />
-              </Button>
+        {!result ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="tron-address">Seu endereço TRON (TRC20)</Label>
+              <Input
+                id="tron-address"
+                autoComplete="off"
+                placeholder="T..."
+                value={tronAddress}
+                onChange={(event) => setTronAddress(event.target.value)}
+              />
             </div>
+            {registeredAddress && (
+              <p className="text-muted-foreground text-xs">
+                Já registrado: <span className="font-mono">{registeredAddress}</span>. Reenviar o
+                mesmo endereço mostra o destino de novo; trocar de endereço exige suporte.
+              </p>
+            )}
+            {error && <p className="text-destructive text-sm">{error}</p>}
           </div>
-
-          <Alert>
-            <AlertDescription>
-              Protótipo — este é um endereço fake, não envie fundos reais. O fluxo abaixo simula
-              o valor entrando em análise até a confirmação on-chain.
-            </AlertDescription>
-          </Alert>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="deposit-amount">Valor enviado (USDT)</Label>
-            <Input
-              id="deposit-amount"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-            />
+        ) : (
+          <div className="flex flex-col gap-3">
+            <Alert>
+              <AlertDescription>{result.warning}</AlertDescription>
+            </Alert>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contract-address">Enviar para (contrato de custódia)</Label>
+              <div className="flex items-center gap-2">
+                <Input id="contract-address" readOnly value={result.contractAddress} className="font-mono text-xs" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleCopy(result.contractAddress)}
+                  aria-label="Copiar endereço do contrato"
+                >
+                  <CopyIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Rede {result.network} · de <span className="font-mono">{result.fromAddress}</span>
+            </p>
           </div>
-        </div>
+        )}
 
         <DialogFooter>
-          <Button disabled={!canSubmit || submitting} onClick={handleSubmit}>
-            Simular depósito
-          </Button>
+          {!result && (
+            <Button disabled={!canSubmit || submitting} onClick={handleSubmit}>
+              {submitting ? "Registrando..." : "Registrar e ver destino"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
