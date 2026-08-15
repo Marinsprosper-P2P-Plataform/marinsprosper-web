@@ -1,6 +1,8 @@
 import type { Decimal } from "@/lib/api";
+import type { BackendOrderStatus } from "@/lib/order-status-map";
 
 export type OrderSide = "CLIENT_BUYS_ASSET" | "CLIENT_SELLS_ASSET";
+export type BackendCancelParty = "CLIENT" | "CASHIER";
 
 /**
  * Corpo de `POST /orders` — campos confirmados direto no Swagger do
@@ -27,15 +29,34 @@ export interface CreateOrderPayload {
 }
 
 /**
- * Resposta real de `POST /orders` contra o ambiente de teste
- * (2026-08-14, ver commit) — não documentada no Swagger, capturada por
- * inspeção direta de uma resposta 201. `GET /orders/:id` ainda não
- * testado; assume-se o mesmo formato até confirmar.
+ * Corpo de `POST /orders/:id/pix` — quem RECEBE em BRL nesta ordem
+ * registra a própria chave; o documento é conferido contra o KYC de
+ * quem registra (trava anti-triangulação). Ver `orders.service.ts`
+ * (`registerPix`) no `marinsprosper-api`.
+ */
+export interface RegisterPixPayload {
+  pixKey: string;
+  /** CPF/CNPJ sem formatação (só dígitos), do dono da chave. */
+  pixDocument: string;
+}
+
+export interface CancelResponsePayload {
+  /** `true` aceita o cancelamento; `false` recusa (abre disputa). */
+  accept: boolean;
+}
+
+/** Espelha `Order` do Prisma real (`present(order)` em
+ * `orders.service.ts`) — mesmos 11 estados de `BackendOrderStatus`
+ * (`order-status-map.ts`), sem nome de contraparte (o backend não expõe
+ * nenhum endpoint público de perfil de usuário ainda — ver
+ * [[14 - Ofertas e Ordens]]) e sem comprovante/TXID informado pelo
+ * usuário (os endpoints de transição não recebem corpo; evidência vive
+ * no chat/disputa, buckets ainda não integrados).
  */
 export interface BackendOrder {
   id: string;
   side: OrderSide;
-  status: string;
+  status: BackendOrderStatus;
   clientId: string;
   cashierId: string | null;
   asset: "USDT";
@@ -49,8 +70,11 @@ export interface BackendOrder {
   escrowId: string | null;
   lockTxHash: string | null;
   settleTxHash: string | null;
-  cancelRequestedFrom: string | null;
-  cancelRequestedBy: string | null;
+  /** Status de origem, guardado só enquanto `status === "CANCEL_REQUESTED"`
+   * — é pra onde a ordem volta se a contraparte recusar. */
+  cancelRequestedFrom: BackendOrderStatus | null;
+  cancelRequestedBy: BackendCancelParty | null;
+  cancelledBy: BackendCancelParty | null;
   expiresAt: string | null;
   acceptedAt: string | null;
   completedAt: string | null;

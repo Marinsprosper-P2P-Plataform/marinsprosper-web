@@ -21,13 +21,13 @@ import { generateIdempotencyKey, ApiError, ApiNetworkError } from "@/lib/api";
  * passar por uma oferta. Sem separação por Comprar/Vender —
  * `OrderTypeBadge` indica o tipo em cada linha.
  */
-export function OfferList({ orders }: { orders: Order[] }) {
+export function OfferList({ orders, onAccepted }: { orders: Order[]; onAccepted?: () => void }) {
   const { user } = useMockSession();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  // Ids aceitos com sucesso no backend real nesta sessão de navegação —
-  // só pra feedback visual do botão; a lista em si (`orders`) continua
-  // vindo do mock até `GET /orders` existir, então a ordem some daqui
-  // só quando a leitura real também estiver ligada.
+  // Feedback visual imediato do botão, antes do pai recarregar a lista
+  // via `onAccepted` (`GET /orders` real não empurra atualização —
+  // sem isso a ordem continuaria aparecendo como "Aceitar" até o
+  // próximo carregamento manual da página).
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
   const availableLimit = user.cashierAvailableLimit;
 
@@ -43,22 +43,16 @@ export function OfferList({ orders }: { orders: Order[] }) {
     // Chamada real ao backend (POST /orders/:id/accept) — testada e
     // confirmada contra o ambiente de teste (2026-08-14), incluindo o
     // próprio 422 de espelho de colateral desatualizado tratado abaixo.
-    // Sem fallback em mock: `orders` aqui ainda vem do "backend fake" em
-    // memória (`GET /orders` não está ligado), então esses ids não
-    // existem de verdade no backend — qualquer aceite aqui bate 404 lá
-    // até a listagem também ficar real (ver [[21 - Integração com API
-    // Real]]).
     try {
       await acceptOrderRequest(orderId, generateIdempotencyKey());
       toast.success("Ordem aceita — caução reservada no contrato");
       setAcceptedIds((prev) => new Set(prev).add(orderId));
+      onAccepted?.();
     } catch (error) {
       if (error instanceof ApiError && error.status === 422) {
         toast.error(error.message || "Caução insuficiente ou limite excedido");
-      } else if (error instanceof ApiError && error.status === 404) {
-        toast.error(
-          "Esta ordem ainda não existe no backend real — a lista aqui é só demonstração até GET /orders ser ligado.",
-        );
+      } else if (error instanceof ApiError && error.status === 409) {
+        toast.error("Outro caixeiro chegou primeiro nesta ordem");
       } else if (error instanceof ApiNetworkError) {
         toast.error(error.message);
       } else if (error instanceof ApiError) {

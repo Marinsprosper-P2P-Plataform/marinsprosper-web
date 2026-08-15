@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { OfferList } from "@/components/shared/offer-list";
 import { OrderStatusBadge, OrderTypeBadge } from "@/components/shared/order-status-badge";
-import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL } from "@/lib/mock/format";
+import { presentOrderForFrontend } from "@/lib/orders/adapt";
+import { listOrdersRequest } from "@/lib/orders/api";
+import { ApiError, ApiNetworkError } from "@/lib/api";
 import { ORDER_STATUS_META, type Order, type OrderStatusCategory } from "@/types/order";
 
 type OrdersSubTab = "disponivel" | "execucao" | "finalizadas";
@@ -17,17 +19,53 @@ type OrdersSubTab = "disponivel" | "execucao" | "finalizadas";
 const EXECUCAO_CATEGORIES: OrderStatusCategory[] = ["open", "progress", "dispute"];
 const FINALIZADAS_CATEGORIES: OrderStatusCategory[] = ["completed", "cancelled", "expired"];
 
-/** GET /orders — 3 tiles no topo (Disponível / Em execução / Finalizadas)
- * em vez de uma lista única. "Disponível" lista ordens `OPEN` avulsas
+/**
+ * `GET /orders` real — sem filtro de `status`, o backend já devolve só
+ * o que a conta pode ver (próprias ordens; caixeiro também vê o livro
+ * `OPEN`). 3 tiles no topo (Disponível / Em execução / Finalizadas) em
+ * vez de uma lista única. "Disponível" lista ordens `OPEN` avulsas
  * inline (ver `OfferList`) pra quem quer aceitar sem passar por uma
- * oferta publicada (`/offers`, que agora lista `Listing` — anúncios
- * persistentes negociáveis, ver `ListingWizard`). "Em execução"/
- * "Finalizadas" continuam restritas às ordens onde a conta é
- * participante (cliente e/ou caixeiro). */
+ * oferta publicada (`/offers`, que lista `Listing` — anúncios
+ * persistentes, ainda mock, ver [[14 - Ofertas e Ordens]]).
+ */
 export default function OrdersPage() {
-  const { orders } = useMockOrders();
   const { user } = useMockSession();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<OrdersSubTab>("disponivel");
+  // Incrementado pra forçar um refetch (ex. depois de aceitar uma
+  // ordem) sem duplicar a lógica de busca fora do efeito.
+  const [refetchToken, setRefetchToken] = useState(0);
+  const refetch = () => setRefetchToken((token) => token + 1);
+
+  // `loading` só cobre a primeira carga (inicia `true`) — refetches
+  // posteriores (`onAccepted`, troca de conta) atualizam a lista sem
+  // piscar o texto "Carregando...", já que os dados antigos continuam
+  // válidos até os novos chegarem.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await listOrdersRequest();
+        if (cancelled) return;
+        setOrders(data.map((raw) => presentOrderForFrontend(raw, user.id)));
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiNetworkError) setError(err.message);
+        else if (err instanceof ApiError) setError(`Backend recusou a listagem: ${err.message}`);
+        else setError("Não foi possível carregar as ordens.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, refetchToken]);
 
   const openOrders = useMemo(() => orders.filter((order) => order.status === "OPEN"), [orders]);
 
@@ -63,31 +101,40 @@ export default function OrdersPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <OrdersTile
-          label="Disponível"
-          count={openOrders.length}
-          active={isDisponivel}
-          onClick={() => setSubTab("disponivel")}
-        />
-        <OrdersTile
-          label="Em execução"
-          count={execucaoOrders.length}
-          active={isExecucao}
-          onClick={() => setSubTab("execucao")}
-        />
-        <OrdersTile
-          label="Finalizadas"
-          count={finalizadasOrders.length}
-          active={isFinalizadas}
-          onClick={() => setSubTab("finalizadas")}
-        />
-      </div>
+      {error && <p className="text-destructive text-sm">{error}</p>}
+      {loading && <p className="text-muted-foreground text-sm">Carregando...</p>}
 
-      {isDisponivel && <OfferList orders={openOrders} />}
-      {isExecucao && <MyOrdersList orders={execucaoOrders} userId={user.id} emptyLabel="Nenhuma ordem em execução." />}
-      {isFinalizadas && (
-        <MyOrdersList orders={finalizadasOrders} userId={user.id} emptyLabel="Nenhuma ordem finalizada ainda." />
+      {!loading && (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <OrdersTile
+              label="Disponível"
+              count={openOrders.length}
+              active={isDisponivel}
+              onClick={() => setSubTab("disponivel")}
+            />
+            <OrdersTile
+              label="Em execução"
+              count={execucaoOrders.length}
+              active={isExecucao}
+              onClick={() => setSubTab("execucao")}
+            />
+            <OrdersTile
+              label="Finalizadas"
+              count={finalizadasOrders.length}
+              active={isFinalizadas}
+              onClick={() => setSubTab("finalizadas")}
+            />
+          </div>
+
+          {isDisponivel && <OfferList orders={openOrders} onAccepted={refetch} />}
+          {isExecucao && (
+            <MyOrdersList orders={execucaoOrders} userId={user.id} emptyLabel="Nenhuma ordem em execução." />
+          )}
+          {isFinalizadas && (
+            <MyOrdersList orders={finalizadasOrders} userId={user.id} emptyLabel="Nenhuma ordem finalizada ainda." />
+          )}
+        </>
       )}
     </div>
   );

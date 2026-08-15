@@ -7,7 +7,7 @@ import {
   useReducer,
   type ReactNode,
 } from "react";
-import type { CancelRequester, Order, OrderType } from "@/types/order";
+import type { Order, OrderType } from "@/types/order";
 
 /**
  * "Backend" fake em memória — existe só pro protótipo (Sprint -1) ter
@@ -262,15 +262,6 @@ function seedOrders(): Order[] {
 }
 
 type OrdersAction =
-  | { type: "CLIENT_TRANSFER"; orderId: string; proofName: string; proofUrl: string; proofMimeType: string }
-  | { type: "CASHIER_CONFIRM_RECEIPT"; orderId: string }
-  | { type: "CASHIER_TRANSFER"; orderId: string; txid: string }
-  | { type: "CLIENT_CONFIRM"; orderId: string }
-  | { type: "REQUEST_CANCEL"; orderId: string; requestedBy: CancelRequester; reason: string }
-  | { type: "RESPOND_CANCEL"; orderId: string; accept: boolean }
-  | { type: "OPEN_DISPUTE"; orderId: string; reason: string }
-  | { type: "RATE"; orderId: string; rating: number }
-  | { type: "EXPIRE"; orderId: string }
   | { type: "REVIEW_DISPUTE"; orderId: string }
   | { type: "RESOLVE_DISPUTE"; orderId: string }
   | { type: "FREEZE_ORDER"; orderId: string; reason: string }
@@ -305,62 +296,6 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
     });
 
   switch (action.type) {
-    case "CLIENT_TRANSFER":
-      return patch(action.orderId, ["AWAITING_CLIENT_TRANSFER"], {
-        status: "AWAITING_CASHIER_CONFIRMATION",
-        clientProofName: action.proofName,
-        clientProofUrl: action.proofUrl,
-        clientProofMimeType: action.proofMimeType,
-      });
-
-    case "CASHIER_CONFIRM_RECEIPT":
-      return patch(action.orderId, ["AWAITING_CASHIER_CONFIRMATION"], {
-        status: "AWAITING_CASHIER_TRANSFER",
-      });
-
-    case "CASHIER_TRANSFER":
-      return patch(action.orderId, ["AWAITING_CASHIER_TRANSFER"], {
-        status: "AWAITING_CLIENT_CONFIRMATION",
-        txid: action.txid,
-      });
-
-    case "CLIENT_CONFIRM":
-      return patch(action.orderId, ["AWAITING_CLIENT_CONFIRMATION"], {
-        status: "COMPLETED",
-      });
-
-    case "REQUEST_CANCEL":
-      return patch(action.orderId, CANCELLABLE_STATUSES, (order) => ({
-        status: "CANCEL_REQUESTED",
-        cancelRequestedBy: action.requestedBy,
-        cancelReason: action.reason,
-        previousMainlineStatus: order.status,
-      }));
-
-    case "RESPOND_CANCEL":
-      return patch(action.orderId, ["CANCEL_REQUESTED"], action.accept
-        ? { status: "CANCEL_ACCEPTED" }
-        : {
-            status: "DISPUTE_OPEN",
-            disputeReason: "Cancelamento recusado pela contraparte.",
-          });
-
-    case "OPEN_DISPUTE":
-      return patch(action.orderId, CANCELLABLE_STATUSES, (order) => ({
-        status: "DISPUTE_OPEN",
-        disputeReason: action.reason,
-        previousMainlineStatus: order.status,
-      }));
-
-    case "RATE":
-      return patch(action.orderId, ["COMPLETED"], { rating: action.rating });
-
-    case "EXPIRE":
-      return patch(action.orderId, ["AWAITING_CLIENT_TRANSFER"], (order) => ({
-        status: "EXPIRED",
-        previousMainlineStatus: order.status,
-      }));
-
     case "REVIEW_DISPUTE":
       return patch(action.orderId, ["DISPUTE_OPEN"], { status: "DISPUTE_UNDER_REVIEW" });
 
@@ -390,15 +325,6 @@ function ordersReducer(state: Order[], action: OrdersAction): Order[] {
 
 interface MockOrdersContextValue {
   orders: Order[];
-  markClientTransferred: (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) => void;
-  confirmCashierReceipt: (orderId: string) => void;
-  markCashierTransferred: (orderId: string, txid: string) => void;
-  confirmClientReceipt: (orderId: string) => void;
-  requestCancel: (orderId: string, requestedBy: CancelRequester, reason: string) => void;
-  respondCancel: (orderId: string, accept: boolean) => void;
-  openDispute: (orderId: string, reason: string) => void;
-  rateOrder: (orderId: string, rating: number) => void;
-  expireOrder: (orderId: string) => void;
   reviewDispute: (orderId: string) => void;
   resolveDispute: (orderId: string) => void;
   freezeOrder: (orderId: string, reason: string) => void;
@@ -410,47 +336,6 @@ const MockOrdersContext = createContext<MockOrdersContextValue | null>(null);
 export function MockOrdersProvider({ children }: { children: ReactNode }) {
   const [orders, dispatch] = useReducer(ordersReducer, undefined, seedOrders);
 
-  const markClientTransferred = useCallback(
-    (orderId: string, proofName: string, proofUrl: string, proofMimeType: string) =>
-      dispatch({ type: "CLIENT_TRANSFER", orderId, proofName, proofUrl, proofMimeType }),
-    [],
-  );
-  const confirmCashierReceipt = useCallback(
-    (orderId: string) => dispatch({ type: "CASHIER_CONFIRM_RECEIPT", orderId }),
-    [],
-  );
-  const markCashierTransferred = useCallback(
-    (orderId: string, txid: string) =>
-      dispatch({ type: "CASHIER_TRANSFER", orderId, txid }),
-    [],
-  );
-  const confirmClientReceipt = useCallback(
-    (orderId: string) => dispatch({ type: "CLIENT_CONFIRM", orderId }),
-    [],
-  );
-  const requestCancel = useCallback(
-    (orderId: string, requestedBy: CancelRequester, reason: string) =>
-      dispatch({ type: "REQUEST_CANCEL", orderId, requestedBy, reason }),
-    [],
-  );
-  const respondCancel = useCallback(
-    (orderId: string, accept: boolean) =>
-      dispatch({ type: "RESPOND_CANCEL", orderId, accept }),
-    [],
-  );
-  const openDispute = useCallback(
-    (orderId: string, reason: string) =>
-      dispatch({ type: "OPEN_DISPUTE", orderId, reason }),
-    [],
-  );
-  const rateOrder = useCallback(
-    (orderId: string, rating: number) => dispatch({ type: "RATE", orderId, rating }),
-    [],
-  );
-  const expireOrder = useCallback(
-    (orderId: string) => dispatch({ type: "EXPIRE", orderId }),
-    [],
-  );
   const reviewDispute = useCallback(
     (orderId: string) => dispatch({ type: "REVIEW_DISPUTE", orderId }),
     [],
@@ -472,15 +357,6 @@ export function MockOrdersProvider({ children }: { children: ReactNode }) {
     <MockOrdersContext.Provider
       value={{
         orders,
-        markClientTransferred,
-        confirmCashierReceipt,
-        markCashierTransferred,
-        confirmClientReceipt,
-        requestCancel,
-        respondCancel,
-        openDispute,
-        rateOrder,
-        expireOrder,
         reviewDispute,
         resolveDispute,
         freezeOrder,

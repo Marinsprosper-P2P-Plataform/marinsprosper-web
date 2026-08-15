@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 import { OrderStatusBadge } from "@/components/shared/order-status-badge";
@@ -7,25 +8,72 @@ import { OrderTimeline } from "@/components/shared/order-timeline";
 import { OrderActions } from "@/components/shared/order-actions";
 import { OrderResolutionPanel } from "@/components/shared/order-resolution-panel";
 import { OrderChat } from "@/components/shared/order-chat";
-import { ProofLink } from "@/components/shared/proof-link";
-import { ReputationStars } from "@/components/shared/reputation-stars";
-import { CounterpartyReputationPanel } from "@/components/shared/counterparty-reputation-panel";
-import { DealSummaryCard } from "@/components/shared/deal-summary-card";
-import { PixTransferPanel } from "@/components/shared/pix-transfer-panel";
-import { useMockOrders } from "@/lib/mock/orders";
 import { useMockSession } from "@/lib/mock/session";
 import { formatBRL, formatUSDT } from "@/lib/mock/format";
-import { getUserReputation } from "@/lib/mock/reputation";
+import { presentOrderForFrontend } from "@/lib/orders/adapt";
+import { getOrderRequest } from "@/lib/orders/api";
+import type { BackendOrder } from "@/lib/orders/types";
+import { ApiError, ApiNetworkError } from "@/lib/api";
 
+/**
+ * `GET /orders/:id` real — a checagem de participante (IDOR) é do
+ * backend (`assertCanRead`: parte, mediador, ou qualquer caixeiro pra
+ * ordem `OPEN`); um 404 aqui cobre tanto "não existe" quanto "não é
+ * sua", de propósito (o mesmo endpoint não pode virar um oráculo de
+ * quais ordens existem). Nome de contraparte, comprovante e snapshot de
+ * chave PIX ainda não têm de onde vir na API real — ver
+ * `presentOrderForFrontend` (`src/lib/orders/adapt.ts`) e
+ * [[14 - Ofertas e Ordens]].
+ */
 export function OrderDetail({ orderId }: { orderId: string }) {
-  const { orders } = useMockOrders();
   const { user } = useMockSession();
-  const order = orders.find((item) => item.id === orderId);
+  const [order, setOrder] = useState<BackendOrder | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  // Incrementado pra forçar um refetch (ex. depois de abrir uma disputa,
+  // cuja resposta é a disputa criada, não a ordem) sem duplicar a lógica
+  // de busca fora do efeito.
+  const [refetchToken, setRefetchToken] = useState(0);
+  const refetch = () => setRefetchToken((token) => token + 1);
 
-  if (!order) {
+  // `loading` só cobre a primeira carga (inicia `true`) — um refetch
+  // atualiza a ordem sem esconder o que já estava na tela.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await getOrderRequest(orderId);
+        if (cancelled) return;
+        setOrder(data);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setError("Ordem não encontrada.");
+        } else if (err instanceof ApiNetworkError) {
+          setError(err.message);
+        } else {
+          setError("Não foi possível carregar a ordem.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, refetchToken]);
+
+  if (loading) {
+    return <p className="text-muted-foreground p-4 text-sm">Carregando...</p>;
+  }
+
+  if (error || !order) {
     return (
       <div className="flex flex-col gap-4 p-4">
-        <p className="text-muted-foreground text-sm">Ordem não encontrada.</p>
+        <p className="text-muted-foreground text-sm">{error ?? "Ordem não encontrada."}</p>
         <Link href="/orders" className="text-foreground text-sm underline">
           Voltar para minhas ordens
         </Link>
@@ -33,44 +81,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     );
   }
 
-  // Checagem de participante — mesmo em protótipo com dados fake, um
-  // cliente não deve ver o detalhe da ordem de outro cliente trocando o
-  // ID na URL (ver Documentação de Segurança, ameaça de IDOR). Uma
-  // conta pode ser cliente numa ordem e caixeiro em outra ao mesmo
-  // tempo, então as duas checagens não são mais exclusivas entre si.
-  // Qualquer conta pode ver ordens ainda OPEN (de qualquer cliente)
-  // pra decidir se aceita.
-  const isParticipant =
-    order.clientId === user.id || order.cashierId === user.id || order.status === "OPEN";
-
-  if (!isParticipant) {
-    return (
-      <div className="flex flex-col gap-4 p-4">
-        <p className="text-muted-foreground text-sm">
-          Você não tem acesso a esta ordem.
-        </p>
-        <Link href="/orders" className="text-foreground text-sm underline">
-          Voltar para minhas ordens
-        </Link>
-      </div>
-    );
-  }
-
-  // Reputação de quem está do outro lado desta ordem — cliente vê a do
-  // caixeiro (se já aceitou), caixeiro vê a do cliente (sempre definido).
-  const isClient = order.clientId === user.id;
-  const counterpartyId = isClient ? order.cashierId : order.clientId;
-  const counterpartyName = isClient ? order.cashierName : order.clientName;
-  const counterpartyReputation = counterpartyId ? getUserReputation(orders, counterpartyId) : null;
-
-  // Pra quem o PIX desta ordem vai: em `compra`, o cliente paga o
-  // caixeiro (destino = `cashierPixKeySnapshot`); em `venda`, o
-  // caixeiro paga o cliente (destino = `clientPixKeySnapshot`). Sem
-  // isso, quem transfere não saberia pra qual conta enviar.
-  const pixHolderName = order.type === "compra" ? order.cashierName : order.clientName;
-  const pixSnapshot = order.type === "compra" ? order.cashierPixKeySnapshot : order.clientPixKeySnapshot;
-  const pixPending = order.status === "OPEN";
-  const pixMissing = !pixPending && !!pixHolderName && !pixSnapshot;
+  const frontendOrder = presentOrderForFrontend(order, user.id);
+  const isParticipant = order.clientId === user.id || order.cashierId === user.id;
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -84,71 +96,32 @@ export function OrderDetail({ orderId }: { orderId: string }) {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-xs">{order.publicId}</span>
-          <OrderStatusBadge status={order.status} />
+          <span className="text-muted-foreground text-xs">{frontendOrder.publicId}</span>
+          <OrderStatusBadge status={frontendOrder.status} />
         </div>
         <h1 className="text-xl font-semibold">
-          {order.type === "compra" ? "Compra" : "Venda"} de USDT — {formatBRL(order.grossAmount)}
+          {frontendOrder.type === "compra" ? "Compra" : "Venda"} de USDT —{" "}
+          {formatBRL(frontendOrder.grossAmount)}
         </h1>
         <p className="text-muted-foreground text-sm">
-          Taxa {formatBRL(order.feeAmount)} ({order.feePercent}%) · {formatUSDT(order.netAmount)} ·
-          {" "}{order.paymentMethod}
+          Taxa {formatBRL(frontendOrder.feeAmount)} ({frontendOrder.feePercent}%) ·{" "}
+          {formatUSDT(frontendOrder.netAmount)} · {frontendOrder.paymentMethod}
         </p>
-        {counterpartyName && (
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-sm">{counterpartyName}</span>
-            <ReputationStars reputation={counterpartyReputation} emptyLabel="Sem avaliações" />
-          </div>
+        {frontendOrder.cashierName && (
+          <p className="text-muted-foreground text-sm">{frontendOrder.cashierName}</p>
         )}
       </div>
 
-      <OrderTimeline
-        status={order.status}
-        lastMainlineStatus={order.previousMainlineStatus}
-      />
+      <OrderTimeline status={frontendOrder.status} lastMainlineStatus={frontendOrder.previousMainlineStatus} />
 
-      {counterpartyId && counterpartyName && (
-        <CounterpartyReputationPanel
-          counterpartyId={counterpartyId}
-          counterpartyName={counterpartyName}
-          orders={orders}
-        />
-      )}
-
-      {order.status !== "OPEN" && order.status !== "DRAFT" && (
-        <DealSummaryCard order={order} isClient={isClient} />
-      )}
-
-      {(pixPending || pixMissing || pixSnapshot) && (
-        <PixTransferPanel
-          order={order}
-          counterpartyName={counterpartyName}
-          pixHolderName={pixHolderName}
-          pixSnapshot={pixSnapshot}
-          pixPending={pixPending}
-          pixMissing={pixMissing}
-        />
-      )}
-
-      {/* Registro persistente do comprovante — continua acessível depois
-       * que a ordem sai do passo "Confirmação do caixeiro" em
-       * `OrderActions` (útil pra conferir depois, inclusive em disputa). */}
-      {order.clientProofUrl && (
-        <div className="flex flex-col gap-1.5">
-          <h2 className="text-sm font-medium">Comprovante do cliente</h2>
-          <ProofLink url={order.clientProofUrl} name={order.clientProofName} />
-        </div>
-      )}
-
-      <OrderActions order={order} />
-      <OrderResolutionPanel order={order} />
+      <OrderActions order={order} viewerId={user.id} onUpdated={setOrder} />
+      <OrderResolutionPanel order={order} viewerId={user.id} onUpdated={setOrder} onDisputeOpened={refetch} />
 
       {/* Chat só faz sentido entre as duas partes já ligadas à ordem —
        * um caixeiro só olhando uma oferta OPEN pra decidir se aceita
-       * ainda não tem com quem conversar. */}
-      {(order.clientId === user.id || order.cashierId === user.id) && (
-        <OrderChat order={order} />
-      )}
+       * ainda não tem com quem conversar. Continua mock (bucket "Chat &
+       * Comprovantes", ainda não integrado à API real). */}
+      {isParticipant && <OrderChat order={frontendOrder} />}
     </div>
   );
 }
