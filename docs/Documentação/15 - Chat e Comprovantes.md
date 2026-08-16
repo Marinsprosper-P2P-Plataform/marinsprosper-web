@@ -64,3 +64,22 @@ Feedback direto: "quem receber os comprovantes de transferências devem ter a ca
 Corrigido: `AttachmentPreview` agora é um `<a target="_blank" rel="noopener noreferrer">` inteiro (miniatura + texto), e `buildFakeAttachment` sempre usa `URL.createObjectURL(file)`, imagem ou PDF — o navegador abre os dois nativamente numa aba nova. A mensagem seedada de exemplo (`msg-2`, `att-1`, o "comprovante-pix" da Ana pro Beto em `order-3`) também foi corrigida: trocada de uma URL fake não-funcional pra um `data:` URI de imagem real, porque não existe um `File` de verdade por trás de um seed estático pra gerar um `blob:` — mas o objetivo (mostrar um comprovante que de fato abre) precisa valer aqui também, não só nos anexos enviados ao vivo pela UI.
 
 O mesmo problema existia, ainda mais grave, no passo dedicado de comprovante da ordem (fora do chat) — ver [[14 - Ofertas e Ordens]].
+
+## Chat real (Sprint 4)
+
+`GET`/`POST /orders/:id/messages` reais substituem `src/lib/mock/chat.tsx` (deletado — sem importador restante) + entrega em tempo real por Socket.IO (`namespace: /chat`, sala `order:<id>`) via `socket.io-client` novo (`src/lib/chat/socket.ts`). Esse era o único bucket do Sprint 4 sem nenhum backend pra revisão anterior de "ambiente de teste desatualizado" (ver [[14 - Ofertas e Ordens]]) — `/orders/{id}/messages` já aparece no Swagger ao vivo.
+
+### O que mudou em relação ao protótipo mock
+
+- **Sem edição** — mensagem é imutável no backend real (era o oposto do protótipo, que simulava "editar" criando uma versão `supersedes`). Corrigir é mandar outra mensagem.
+- **Sem indicador de "digitando"** — o gateway real só tem `entrar`/`sair`; não existe evento de digitação. Removido.
+- **Sem nome de autor** — mesma limitação de nome de contraparte do resto da API real (sem perfil público). Mensagens rotuladas por papel + id curto (`Cliente 8F3A21`, `Caixeiro 21C0F3`, `Mediador ...`, `Sistema` pras mensagens que a própria máquina de estados da ordem gera).
+- **Anexo por dois caminhos** — `multipart` direto (`file` no `FormData`) ou `uploadId` de um upload já confirmado via `POST /uploads` (`src/lib/uploads/`, mesma infra usada por KYC e evidência de disputa). `OrderChat` usa multipart direto, mais simples pro caso comum.
+
+### Tempo real: mensagem própria e mensagem de sistema tratadas diferente
+
+`chat.enviar()` (envio de usuário) publica no Redis (`publicarMensagem`) e todo mundo na sala recebe o evento `mensagem`, **inclusive quem enviou** — por isso `OrderChat` deduplica por `id` ao inserir (a mensagem já foi adicionada localmente pela resposta do `POST`, e o eco do socket seria uma segunda cópia sem a checagem). Já a mensagem de sistema (`registrarEvento`, criada dentro de cada transição de estado da ordem) **não** passa por `publicarMensagem` — só o evento `status` é publicado separadamente. `OrderChat` escuta `status` e recarrega o histórico (`GET` de novo) quando ele chega, porque é o único jeito de pegar essa linha nova sem esperar o usuário recarregar a página.
+
+### Testado
+
+`npx tsc --noEmit`, `npx eslint src` e `npx next build` sem erros. Verificação funcional completa (enviar/receber em tempo real entre duas contas, anexo) ficou pendente — o CORS do ambiente de teste passou a liberar só o domínio de produção da Vercel durante esta rodada (não mais `http://localhost:3000`), então o dev local parou de conseguir chamar a API real pra testar; registrado como pendência no [[Kanban]].

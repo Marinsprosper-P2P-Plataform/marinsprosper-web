@@ -66,3 +66,51 @@ export function mfaRecoveryRequest(mfaToken: string, code: string) {
     { accessTokenOverride: mfaToken },
   );
 }
+
+// ---------------------------------------------------------------------
+// Enrollment do segundo fator — distinto do desafio de login acima.
+// Rotas exigem o access token normal (sessão já aberta), não o
+// `mfaToken` de vida curta. Sem tela no protótipo mock ainda; vive em
+// `/profile` agora (ver `mfa-settings.tsx`).
+// ---------------------------------------------------------------------
+
+export interface MfaStatus {
+  /** Cadastrado e confirmado — login passa a exigir o segundo fator. */
+  enabled: boolean;
+  /** Cadastrado, ainda não confirmado (`activate` pendente). */
+  pending: boolean;
+  recoveryCodesRemaining: number;
+}
+
+export function mfaStatusRequest() {
+  return api.get<MfaStatus>("/auth/mfa");
+}
+
+export interface MfaSetupResponse {
+  /** Base32 — pra quem prefere digitar a chave em vez de ler o QR. */
+  secret: string;
+  /** `otpauth://` — vira QR code na interface (sem lib de QR ainda;
+   * mostrado como texto/chave manual). */
+  otpauthUri: string;
+}
+
+/** Gera o segredo — o fator nasce inativo até `activate` confirmar. */
+export function mfaSetupRequest() {
+  return api.post<MfaSetupResponse>("/auth/mfa/setup", undefined);
+}
+
+export interface MfaActivateResponse {
+  confirmedAt: string;
+  /** Mostrados uma única vez — não existe rota que os reexiba. */
+  recoveryCodes: string[];
+}
+
+export function mfaActivateRequest(code: string) {
+  return api.post<MfaActivateResponse>("/auth/mfa/activate", { code });
+}
+
+/** `code` aceita TOTP de 6 dígitos ou um código de recuperação — o
+ * backend distingue pelo formato, não por um campo à parte. */
+export function mfaDisableRequest(code: string) {
+  return api.delete<void>("/auth/mfa", { body: { code } });
+}

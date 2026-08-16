@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MfaSettings } from "@/components/shared/mfa-settings";
 import { ReputationStars } from "@/components/shared/reputation-stars";
 import { COUNTRIES } from "@/lib/validations/auth";
 import { PIX_KEY_TYPES, isCpfCnpjFormat, type PixKeyType } from "@/lib/validations/pix";
@@ -84,6 +85,11 @@ export default function ProfilePage() {
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium">Segurança</h2>
+        <MfaSettings />
       </div>
     </div>
   );

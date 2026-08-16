@@ -1,6 +1,6 @@
 export { api, apiFetch } from "./client";
 export type { ApiFetchOptions, ApiFetchResult } from "./client";
-export { getApiBaseUrl } from "./config";
+export { getApiBaseUrl, getWsBaseUrl } from "./config";
 export { ApiError, ApiNetworkError } from "./errors";
 export { createIdempotencyKeyManager, generateIdempotencyKey } from "./idempotency";
 export {

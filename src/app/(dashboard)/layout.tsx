@@ -5,7 +5,6 @@ import { MockAdminUsersProvider } from "@/lib/mock/admin-users";
 import { MockAuditLogProvider } from "@/lib/mock/audit-log";
 import { MockBlacklistProvider } from "@/lib/mock/blacklist";
 import { MockCashierAvailabilityProvider } from "@/lib/mock/cashier-availability";
-import { ChatProvider } from "@/lib/mock/chat";
 import { MockCollateralProvider } from "@/lib/mock/collateral";
 import { MockListingsProvider } from "@/lib/mock/listings";
 import { MockOrdersProvider } from "@/lib/mock/orders";
@@ -27,22 +26,20 @@ export default function DashboardLayout({
               <MockAdminUsersProvider>
                 <MockAuditLogProvider>
                   <MockBlacklistProvider>
-                    <ChatProvider>
-                      <MockPaymentMethodsProvider>
-                        <MockListingsProvider>
-                          <div className="flex min-h-screen">
-                            <Sidebar />
-                            <div className="flex min-w-0 flex-1 flex-col">
-                              <MobileHeader />
-                              <main className="flex-1 pb-[calc(4rem+var(--spacing-safe-bottom))] md:pb-0">
-                                {children}
-                              </main>
-                            </div>
-                            <BottomNav />
+                    <MockPaymentMethodsProvider>
+                      <MockListingsProvider>
+                        <div className="flex min-h-screen">
+                          <Sidebar />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <MobileHeader />
+                            <main className="flex-1 pb-[calc(4rem+var(--spacing-safe-bottom))] md:pb-0">
+                              {children}
+                            </main>
                           </div>
-                        </MockListingsProvider>
-                      </MockPaymentMethodsProvider>
-                    </ChatProvider>
+                          <BottomNav />
+                        </div>
+                      </MockListingsProvider>
+                    </MockPaymentMethodsProvider>
                   </MockBlacklistProvider>
                 </MockAuditLogProvider>
               </MockAdminUsersProvider>

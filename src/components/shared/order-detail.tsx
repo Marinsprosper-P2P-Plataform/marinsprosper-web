@@ -158,9 +158,11 @@ export function OrderDetail({ orderId }: { orderId: string }) {
 
       {/* Chat só faz sentido entre as duas partes já ligadas à ordem —
        * um caixeiro só olhando uma oferta OPEN pra decidir se aceita
-       * ainda não tem com quem conversar. Continua mock (bucket "Chat &
-       * Comprovantes", ainda não integrado à API real). */}
-      {isParticipant && <OrderChat order={frontendOrder} />}
+       * ainda não tem com quem conversar. Real agora — ver
+       * [[15 - Chat e Comprovantes]]. */}
+      {isParticipant && (
+        <OrderChat orderId={order.id} clientId={order.clientId} cashierId={order.cashierId} viewerId={viewerId} />
+      )}
     </div>
   );
 }

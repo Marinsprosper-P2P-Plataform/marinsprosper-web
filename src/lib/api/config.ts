@@ -13,3 +13,15 @@ export function getApiBaseUrl(): string {
   }
   return url.replace(/\/+$/, "");
 }
+
+/** Mesma origem da API (Socket.IO negocia o upgrade sozinho a partir de
+ * uma URL https) — usada só pelo namespace `/chat`. */
+export function getWsBaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_WS_URL;
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_WS_URL não configurada — copie .env.example para .env.local",
+    );
+  }
+  return url.replace(/\/+$/, "");
+}

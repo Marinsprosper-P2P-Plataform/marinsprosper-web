@@ -65,3 +65,19 @@ Segue a regra da [[04 - Documentação de Segurança]]: **não** expõe o motivo
 - Nenhuma dessas telas está conectada a uma API real — tudo fake, com `setTimeout` simulando latência.
 - O checkbox de "entrar como caixeiro/admin" no login é uma muleta temporária, não o modelo final de autenticação.
 - Falta decidir o provedor de Auth (ver [[01 - PRD]], seção 7) antes de integrar de verdade no Sprint 4.
+
+**Nota (Sprint 4)**: login/registro/refresh/logout e o desafio de MFA no login (`/mfa`, `POST /auth/mfa/verify`/`recovery`) já foram migrados pra API real numa rodada anterior — este documento descreve o estado original do protótipo (Sprint -1), não foi reescrito quando isso mudou. Ver "Concluído" no [[Kanban]] ("Autenticação real"). KYC e o enrollment de MFA (`/auth/mfa/setup`/`activate`/`DELETE`) foram migrados na rodada abaixo.
+
+## KYC — API real (Sprint 4)
+
+`/kyc` e `/kyc/status` trocaram o preview por query string (`?status=aprovado`) por dados reais: `POST /kyc` (abre/retoma o caso, idempotente), `POST /kyc/documents` e `POST /kyc/submit`. Upload em duas fases (`src/lib/uploads/`, compartilhado com evidência de disputa e chat): `POST /uploads` pede uma URL assinada de escrita, o arquivo vai direto pro bucket via `PUT`, e só o `uploadId` é informado no endpoint que usa o arquivo — os bytes nunca passam pela nossa API. `ID_FRONT` mapeia o antigo campo genérico "documento" do protótipo (o backend também aceita `ID_BACK`/`PROOF_OF_ADDRESS`, mas só `ID_FRONT`+`SELFIE` são obrigatórios pra submeter).
+
+**Não testável contra o ambiente de teste ainda**: nem `/kyc`, `/kyc/me`, `/kyc/documents`, `/kyc/submit`, nem `/uploads` aparecem no Swagger ao vivo (`/docs-json`) de `https://api.163-176-220-125.sslip.io` — mesmo gap de infraestrutura já registrado pra `ratings`/`disputes` ([[14 - Ofertas e Ordens]]): implementado certo contra o código-fonte do `marinsprosper-api` (branch `main`), mas o servidor de teste ainda roda uma versão mais antiga. Ver [[Kanban]].
+
+## Enrollment de MFA — API real (Sprint 4)
+
+Sem tela no protótipo mock — implementado direto contra a API real em `/profile` (`MfaSettings`, `src/components/shared/mfa-settings.tsx`), distinto do desafio de login que já existia. `GET /auth/mfa` (status), `POST /auth/mfa/setup` (gera o segredo — nasce inativo), `POST /auth/mfa/activate` (confirma com um TOTP de 6 dígitos, devolve os códigos de recuperação **uma única vez**) e `DELETE /auth/mfa` (exige um código válido — TOTP ou recuperação — pra desativar).
+
+Sem QR code renderizado: o projeto não tem nenhuma lib de geração de QR ainda, e gerar um client-side só pra isso seria uma dependência nova pra uma tela só. Mostra a chave (`secret`, base32) como texto pra digitar manualmente no app autenticador — funcionalmente completo, só menos cômodo que escanear. Se cadastro fica pendente (setup feito, não confirmado) e a página recarrega, o segredo não pode ser reexibido (mesma regra do backend) — a UI oferece só "gerar novo código", que decorre um `setup` novo.
+
+Mesmo gap de ambiente de teste do KYC acima: `/auth/mfa` (GET/POST/DELETE de enrollment) não aparece no Swagger ao vivo, só `/auth/mfa/verify` (desafio de login, já existia). Não testável contra o ambiente de teste ainda.
