@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import type { CreateRatingPayload, UserReputation } from "./types";
+import type { CreateRatingPayload, ModerateRatingPayload, RatingModeration, UserReputation } from "./types";
 
 /**
  * `POST /orders/:id/rating` — avalia a contraparte de uma ordem
@@ -18,4 +18,13 @@ export function rateOrderRequest(orderId: string, payload: CreateRatingPayload, 
  * específico além do login. */
 export function getUserReputationRequest(userId: string) {
   return api.get<UserReputation>(`/users/${userId}/ratings`);
+}
+
+/** `POST /ratings/:id/moderation` — só administração (checagem dentro
+ * do service, não guard de classe: é a única rota restrita deste
+ * controller). Esconder não apaga — a avaliação continua no banco,
+ * cada ato de moderação fica registrado com motivo. `VISIBLE` reexibe
+ * uma avaliação escondida antes. */
+export function moderateRatingRequest(ratingId: string, payload: ModerateRatingPayload) {
+  return api.post<RatingModeration>(`/ratings/${ratingId}/moderation`, payload);
 }

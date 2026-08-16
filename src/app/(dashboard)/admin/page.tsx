@@ -11,6 +11,7 @@ import {
   IdCardIcon,
   ListOrderedIcon,
   ShieldBanIcon,
+  StarIcon,
   UsersIcon,
 } from "lucide-react";
 import { listAdminOrdersRequest, listAdminUsersRequest } from "@/lib/admin/api";
@@ -82,6 +83,7 @@ export default function AdminPage() {
     { href: "/admin/orders", label: "Ordens", description: "Visão consolidada de todas as ordens", icon: ListOrderedIcon },
     { href: "/admin/audit-logs", label: "Logs de auditoria", description: "Consulta somente leitura", icon: FileTextIcon },
     { href: "/admin/blacklist", label: "Blacklist", description: "Gestão de bloqueios", icon: ShieldBanIcon },
+    { href: "/admin/ratings", label: "Avaliações", description: "Esconder ou reexibir avaliação, com motivo", icon: StarIcon },
     { href: "/disputes", label: "Disputas", description: "Fila de mediação (papel MEDIATOR, não ADMIN)", icon: AlertTriangleIcon },
     { href: "/admin/reports", label: "Relatórios", description: "GMV, receita e liquidez (ledger sem rota HTTP, ainda mockado)", icon: BarChart3Icon },
   ];

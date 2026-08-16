@@ -121,3 +121,14 @@ O `marinsprosper-api` clonado localmente (`C:\Users\joser\OneDrive\Desktop\marin
 ### Não testável contra o ambiente de teste
 
 Mesmo bloqueio de infraestrutura do resto do Sprint 4: a VM de teste não tem `admin/*` nem `kyc/*` no Swagger ao vivo. Implementado certo contra o código-fonte real do backend, mas sem como confirmar ponta a ponta até o redeploy — ver item de bloqueio no [[Kanban]].
+
+### `/admin/ratings` — sem listagem, só busca e moderação direta
+
+Fecha o último card do bucket: `POST /ratings/:id/moderation` (`src/lib/ratings/api.ts`, que já tinha `getUserReputationRequest` de uma rodada anterior). Diferente do resto do painel, este endpoint não mora atrás de `AdminGuard` — a checagem de `ADMIN` é feita dentro de `ratings.service.ts` (é a única rota restrita do `RatingsController`, que por lá é público pra leitura).
+
+O backend não tem nenhuma listagem administrativa de avaliações — nem `GET /admin/ratings` nem equivalente. A única leitura é `GET /users/:id/ratings`, pública, e só devolve as **ainda visíveis** (até 20 mais recentes). Isso molda a tela em duas frentes:
+
+1. **Buscar por usuário** — reaproveita `getUserReputationRequest`, mostra as avaliações visíveis com um botão "Esconder" por linha (motivo obrigatório, 10-1000 caracteres).
+2. **Moderar por ID** — formulário manual (ID da avaliação + status `VISIBLE`/`HIDDEN` + motivo), necessário pra reexibir: uma vez escondida, a avaliação some da leitura pública, então o único jeito de achar o ID de novo é em `/admin/audit-logs` (`entityType: "rating"`, o evento `RATING_MODERATED` grava `ratingId` em `metadata`).
+
+Sem tela no protótipo antes desta rodada.

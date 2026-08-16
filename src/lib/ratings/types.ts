@@ -23,3 +23,22 @@ export interface UserReputation {
     createdAt: string;
   }>;
 }
+
+export type RatingModerationStatus = "VISIBLE" | "HIDDEN";
+
+/** Corpo de `POST /ratings/:id/moderation` — motivo obrigatório
+ * (10-1000 caracteres): moderação sem motivo registrado não se
+ * distingue de censura. */
+export interface ModerateRatingPayload {
+  status: RatingModerationStatus;
+  reason: string;
+}
+
+export interface RatingModeration {
+  id: string;
+  ratingId: string;
+  status: RatingModerationStatus;
+  reason: string;
+  moderatorId: string;
+  createdAt: string;
+}
