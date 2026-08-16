@@ -6,7 +6,7 @@ kanban-plugin: board
 
 ## Backlog — decisões e bloqueios (fora do controle direto do front)
 
-Lista consolidada e categorizada (infraestrutura vs. endpoint faltando vs. decisão de produto), reauditada em 2026-08-16 direto no código do backend: [[21 - Integração com API Real]] §4.
+Lista consolidada e categorizada (infraestrutura vs. endpoint faltando vs. decisão de produto), reauditada em 2026-08-16 direto no código do backend: [[21 - Integração com API Real]] §4. Mapeamento contra os 12 critérios de aceite do MVP ([[01 - PRD]] §6) em §4.0 — conclusão: **nenhum dos itens abaixo bloqueia o MVP em si**, os 12 critérios já estão implementados no backend; o que resta aqui é infraestrutura de teste (§4.1) e trabalho de Fase 3+/pós-MVP (§4.2, §4.3).
 
 - [ ] Auditoria externa do smart contract Tron concluída — bloqueia liberar telas de depósito de caução em mainnet #bloqueio #jose
 - [ ] Definição de jurisdição/enquadramento regulatório — bloqueia Fase 3 (dinheiro real) #bloqueio #julia

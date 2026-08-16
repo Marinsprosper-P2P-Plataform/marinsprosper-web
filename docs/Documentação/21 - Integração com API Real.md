@@ -173,7 +173,28 @@ Auth requer `Authorization: Bearer <accessToken>`; ⚡ marca rota que também ex
 
 Todo o bloco acima (`admin`, `blacklist`, `kyc`) só existe no `main` do backend desde a atualização de 2026-08-16 do clone local de referência — o checkout local estava 10 commits atrás do `origin/main` e não tinha nenhum desses módulos. Front implementado direto contra o código-fonte atualizado, não contra suposição; **nenhum dos 6 endpoints acima está disponível na VM de teste ainda** (`api.163-176-220-125.sslip.io`), ver §-1 e o Backlog do [[Kanban]].
 
-## 4. O que ainda falta do backend — lista consolidada (reauditada em 2026-08-16)
+## 4. O que ainda falta do backend
+
+### 4.0 Contra os 12 critérios de aceite do MVP ([[01 - PRD]] §6)
+
+O PRD define MVP como Fase 2 ("backend funcional, sem dinheiro real" — o estado atual, testnet TRON) e lista 12 critérios pra virar Fase 3 (beta fechado, dinheiro real). Mapeando cada um contra o que existe hoje no código do backend:
+
+| # | Critério (PRD §6) | Endpoint(s) | Status no backend |
+|---|---|---|---|
+| 1 | Cliente e caixeiro se cadastram e são aprovados pelo admin | `POST /auth/register`, `GET`/`POST /admin/users` | ✅ implementado |
+| 2 | Caixeiro tem caução registrada e limite calculado corretamente | `GET /cashier/collateral`, `GET /cashier/limit` | ✅ implementado **e testado contra a API real** (`cashier@teste.local`, ver [[17 - Carteira e Caução]]) |
+| 3 | Cliente cria ordem; caixeiro só aceita com limite disponível | `POST /orders`, `POST /orders/:id/accept` | ✅ implementado **e testado contra a API real** — 201 e 422 ("saldo de colateral desatualizado") confirmados em 2026-08-14 |
+| 4 | Aceite atômico (dois caixeiros não aceitam a mesma ordem) | `POST /orders/:id/accept` (UPDATE condicional, 409 se já não `OPEN`) | ✅ implementado por desenho; concorrência de verdade (2 requisições simultâneas) é teste de carga, não algo que o front confirma sozinho — fica pro K6 do Sprint 5 |
+| 5 | Requisição repetida não duplica pagamento/saldo/reserva (idempotência) | `Idempotency-Key` nas rotas ⚡ | ✅ implementado (`IdempotencyInterceptor`, réplica em 24h) |
+| 6 | Chat, comprovantes e TXID registrados e vinculados à ordem | `GET`/`POST /orders/:id/messages`, `lockTxHash`/`settleTxHash` em `Order` | ✅ implementado — TXID nunca é digitado por ninguém, vem do webhook on-chain, mais forte que a suposição original do PRD (usuário não pode informar TXID errado) |
+| 7 | Cancelamento exige concordância da contraparte; quem pediu não avalia a outra | `POST /orders/:id/cancel-request`/`cancel-response`, `POST /orders/:id/rating` (403 pra quem cancelou) | ✅ implementado |
+| 8 | Recusa de cancelamento abre disputa; admin visualiza o caso completo e resolve | `POST /orders/:id/cancel-response` (`accept:false`), `POST /orders/:id/dispute`, `GET`/`POST /disputes/*` | ⚠️ **implementado com 2 desvios do texto literal do PRD**: (a) recusar cancelamento **devolve a ordem ao estado anterior**, não abre disputa sozinho — quem discorda abre a disputa como ação separada (`POST /orders/:id/dispute`); (b) quem resolve é o papel `MEDIATOR`, não `ADMIN` (`GET`/`POST /disputes/*`, decisão em duas contas de mediador diferentes — mais rígido que "admin resolve" do PRD). Nenhum dos dois é lacuna, são refinamentos de design posteriores ao PRD |
+| 9 | Toda ação relevante aparece em log de auditoria imutável | `GET /admin/audit-logs` (`audit_logs`, append-only) | ✅ implementado |
+| 10 | Usuário bloqueado não consegue operar | `blacklist_entries` (checado em cadastro/aprovação/ordem/PIX), `UserStatus.BLOCKED` | ✅ implementado |
+| 11 | Taxas sempre calculadas pelo backend, nunca pelo frontend | `fiatAmount = assetAmount * rate` calculado em `POST /orders` | ✅ implementado e confirmado (`fiatAmount` da resposta bate com o cálculo do backend, não o do front) |
+| 12 | Anexos ficam privados; permissões impedem acesso a ordens de terceiros | URLs assinadas (expiram em 5min), `GET /orders/:id` (404 uniforme pra quem não é parte) | ✅ implementado |
+
+**Conclusão: os 12 critérios já estão implementados no código do backend.** Não falta nenhum endpoint novo pros critérios de aceite do MVP em si — o que falta é só **poder confirmar isso contra um ambiente rodando** (ver §4.1: a VM de teste não tem a versão atual do backend). Os itens de §4.2 e §4.3 abaixo (ledger/relatórios, saque de caução, disponibilidade do caixeiro, `cashier/apply`, verify-email/phone, `FROZEN_FOR_AUDIT`) **não são critério de aceite do MVP** — são trabalho de Fase 3+/pós-MVP que já está mapeado, mas não bloqueia o "MVP pronto pra virar beta" descrito no PRD.
 
 Não é trabalho do front, mas bloqueia integração ou uso — registrar aqui pra rastrear e pra ter um único lugar pra levar ao time de backend. Três categorias: infraestrutura (ambiente já existe, só está com config/versão errada), endpoints que não existem no código nenhum, e decisões de produto que precisam ser tomadas antes de virarem trabalho de backend.
 
