@@ -19,35 +19,9 @@ Lista consolidada e categorizada (infraestrutura vs. endpoint faltando vs. decis
 - [ ] **`CORS_ORIGINS` parou de incluir `http://localhost:3000`** — descoberto 2026-08-16 ao testar o chat: o backend liberou `https://marinsprosper-web.vercel.app` (resolvendo o bloqueio de produção), mas `http://localhost:3000` não responde mais com `Access-Control-Allow-Origin` (confirmado por `curl` direto — parece substituição, não adição, da lista). Sem isso, dev local não consegue mais chamar a API real pra testar nada deste bucket em diante. Pedir pro backend acrescentar `http://localhost:3000` de volta, ao lado do domínio da Vercel, não no lugar dele #bloqueio #jose
 
 
-## Design System (Fase 1) — antes de qualquer tela final
-
-
-
-## Autenticação & Onboarding (Sprint -1, dados fake)
-
-
-## Perfil & Configurações (Sprint -1, dados fake)
-
-
-## Ofertas & Ordens (Sprint -1, dados fake)
-
-
-## Chat & Comprovantes (Sprint -1, dados fake)
-
-
-## Carteira & Caução — visão do Caixeiro (Sprint -1, dados fake)
-
-
-## Administração & Mediação (Sprint -1, dados fake)
-
-
-## Relatórios & Ganhos (Sprint -1, dados fake)
-
-
-
 ## Integração com API real (Sprint 4)
 
-Backend (`marinsprosper-api`, repositório separado: <https://github.com/Marinsprosper-P2P-Plataform/marinsprosper-api>) reauditado em 2026-08-13 (auditoria anterior 08-10) — avançou bastante: além de auth/ordens/custódia/chat/idempotência do levantamento anterior, agora também KYC completo, MFA com enrollment, avaliações, disputas/mediação e todo o painel de admin (usuários, ordens, audit-logs, blacklist). Só o ledger continua sem rota HTTP. Mapeamento completo endpoint↔tela, remapeamento da máquina de estados e lista do que ainda fica bloqueado em [[21 - Integração com API Real]].
+Backend (`marinsprosper-api`, repositório separado: <https://github.com/Marinsprosper-P2P-Plataform/marinsprosper-api>) reauditado em 2026-08-16 (auditorias anteriores 08-10, 08-13) — auth/ordens/custódia/chat/idempotência, KYC completo, MFA com enrollment, avaliações, disputas/mediação e todo o painel de admin (usuários, ordens, audit-logs, blacklist, fila de KYC) já existem no código do backend. Só o ledger continua sem rota HTTP. Mapeamento completo endpoint↔tela, remapeamento da máquina de estados e lista consolidada do que ainda fica bloqueado (categorizada: infraestrutura / endpoint faltando / decisão de produto) em [[21 - Integração com API Real]].
 
 **Front e backend são repositórios e máquinas separados, de propósito** — não existe backend em `localhost`. O backend roda numa VM própria desde o primeiro dia; o ambiente de teste atual (não é produção) fica em `https://api.163-176-220-125.sslip.io` (Swagger em `/docs`), com contas de teste prontas (`cliente@teste.local`, `cashier@teste.local`, `mediador@teste.local` etc., senha `teste-marinsprosper-2026` em todas — ver [[21 - Integração com API Real]] §0). `.env.example` já aponta pra lá.
 
