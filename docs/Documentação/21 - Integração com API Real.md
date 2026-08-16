@@ -6,9 +6,9 @@ tags: [api, integração, backend]
 
 # Parte 21 — Integração com a API real (`marinsprosper-api`)
 
-O backend (`marinsprosper-api`, NestJS + Postgres + Redis + TRON, repositório separado) chegou até o **Sprint 3**: auth (incl. MFA/enrollment), KYC completo, ordens com máquina de estados real, custódia/caução on-chain (testnet TRON), chat com WebSocket, disputas/mediação, avaliações, painel de admin (usuários/ordens/audit-logs/blacklist) e idempotência. O motor do ledger de dupla entrada existe e é testado, mas **ainda sem rota HTTP** — é o que continua bloqueando Relatórios & Ganhos. Esta doc substitui o contrato provisório de [[05 - Especificação de API]] pelo contrato real, e mapeia o que dá pra conectar agora vs. o que continua mockado.
+O backend (`marinsprosper-api`, NestJS + Postgres + Redis + TRON, repositório separado) chegou até o **Sprint 3**: auth (incl. MFA/enrollment), KYC completo, ordens com máquina de estados real, custódia/caução on-chain (testnet TRON), chat com WebSocket, disputas/mediação, avaliações, painel de admin (usuários/ordens/audit-logs/blacklist/fila de KYC) e idempotência. O motor do ledger de dupla entrada existe e é testado, mas **ainda sem rota HTTP** — é o único bloqueio "grande" que resta, e continua travando Relatórios & Ganhos. Esta doc substitui o contrato provisório de [[05 - Especificação de API]] pelo contrato real, e mapeia o que dá pra conectar agora vs. o que continua mockado. §4 é a lista consolidada de tudo que falta do lado do backend — use-a pra levar pendências ao time de lá.
 
-Levantamento feito por inspeção direta do código do backend (`src/modules/`, `prisma/schema.prisma`, `README.md`, `.env.example`, `deploy/`), não por suposição — mesmo princípio das outras auditorias deste vault (ver [[19 - Checklist de Validação Sprint -1]]). Reauditado em 2026-08-13 (auditoria anterior: 2026-08-10) — o backend avançou bastante nesses 3 dias: KYC, MFA (enrollment), avaliações, disputas e todo o painel de admin saíram do zero pra prontos. As seções abaixo foram atualizadas por completo, não só emendadas.
+Levantamento feito por inspeção direta do código do backend (`src/modules/`, `prisma/schema.prisma`, `README.md`, `.env.example`, `deploy/`), não por suposição — mesmo princípio das outras auditorias deste vault (ver [[19 - Checklist de Validação Sprint -1]]). Reauditado em 2026-08-16 (auditorias anteriores: 08-10, 08-13) — o front terminou de ligar os cinco endpoints de admin (`usuários`, `ordens`, `audit-logs`, `blacklist`, `kyc` + `ratings/moderation`) contra o código-fonte do backend, que nessa mesma passada foi descoberto **10 commits atrás do `main` remoto** no clone local usado como referência (nenhum dos módulos `admin`/`blacklist`/`kyc`/`disputes`/`ratings` existia no checkout antes de um `git pull`). As tabelas de §3 e a lista de §4 foram atualizadas pra refletir o estado atual; o resto do histórico (§-1 a §2) continua como registro cronológico das rodadas anteriores.
 
 ## -1. Estado da implementação no front
 
@@ -128,7 +128,7 @@ Auth requer `Authorization: Bearer <accessToken>`; ⚡ marca rota que também ex
 | `POST /orders/:id/cancel-request` ⚡, `POST /orders/:id/cancel-response` ⚡ | fluxo de cancelamento | ✅ pronto — quem solicitou não pode responder ao próprio pedido; bloqueado (409) a partir de `RECEIPT_CONFIRMED` |
 | `POST /orders/:id/cancel` ⚡ | — | ✅ pronto — cancelamento direto antes do aceite (`DRAFT`/`OPEN`), sem passar por solicitação/resposta |
 | `POST /orders/:id/rating` ⚡, `GET /users/:id/ratings` | Avaliação por estrelas pós-conclusão | 🆕 **novo desde 08/10** — 1 a 5 + comentário opcional, uma por ordem, só depois de `COMPLETED` (409 enquanto anda). Quem *pediu* o cancelamento não avalia (403, esconder o botão pro requerente); `EXPIRED` também não avalia. Nota é imutável. `GET /users/:id/ratings` traz média/distribuição/comentários públicos — dá pra aposentar `getUserReputation` local |
-| `POST /ratings/:id/moderation` ⚡ | — (sem tela) | 🆕 admin esconde/reexibe uma avaliação, sempre com motivo — sem tela no protótipo ainda; candidato a `/admin/*` |
+| `POST /ratings/:id/moderation` | `/admin/ratings` (novo) | ✅ **ligado em 2026-08-16** — admin esconde/reexibe uma avaliação, sempre com motivo. Ver linha em Admin & Relatórios abaixo |
 | — | Congelar/liberar (`FROZEN_FOR_AUDIT`) | ❌ sem endpoint, ver §2 |
 | `POST /orders/:id/dispute` ⚡ | Abrir disputa (`/orders/[id]` → disputa) | 🆕 **novo desde 08/10** — só as partes, só a partir de `CLIENT_TRANSFERRED` (409 antes disso; o botão certo ali é cancelar). Disputa já nasce com mediador designado (menor fila). Prazo estourado *depois* de pagamento declarado também cai em `DISPUTED` (não em `EXPIRED`) — sem quem abrir, aparece direto em `GET /disputes` |
 | `GET /disputes`, `GET /disputes/:id` | — (sem tela — hoje é `/admin/disputes`, papel errado, ver §1) | 🆕 fila do mediador (`GET /disputes`) e detalhe restrito às partes + mediador designado (`GET /disputes/:id`, 404 pra quem não é). Mensagens filtradas por público (`MEDIATOR_CLIENT`/`MEDIATOR_CASHIER` só pro lado escolhido; partes só mandam `ALL`) |
@@ -162,26 +162,50 @@ Auth requer `Authorization: Bearer <accessToken>`; ⚡ marca rota que também ex
 
 | Endpoint | Tela atual | Status |
 |---|---|---|
-| `GET /admin/users?status=PENDING_KYC`, `POST /admin/users/:id/approve` | `/admin/users` | 🆕 **novo desde 08/10** — fila de aprovação (por status) e liberação (`PENDING_KYC → ACTIVE`), aceita `reason` obrigatório pro histórico. Front hoje aprova sem exigir motivo — precisa de um campo a mais na tela |
-| `GET /admin/orders` | `/admin/orders` | 🆕 ordens de qualquer usuário, única leitura sem recorte de parte — igual ao que a tela já assume |
-| `GET /admin/audit-logs` | `/admin/audit-logs` | 🆕 filtrável por ação/entidade/ator/período, só leitura (é append-only no banco) — front já é só-leitura, encaixa direto |
-| `GET /admin/blacklist`, `POST /admin/blacklist` | `/admin/blacklist` | 🆕 bloqueia/desbloqueia por `DOCUMENT`/`EMAIL`/`USER`/`TRON_ADDRESS`/`PIX_KEY` (documento e e-mail normalizados antes de gravar; endereço TRON não, o checksum depende da caixa). Quem esbarra recebe 403 genérico, sem dizer qual alvo casou — front não deve tentar ser mais específico que isso na mensagem de erro |
-| `GET /admin/kyc`, `GET /admin/kyc/:id`, `POST /admin/kyc/:id/claim`, `POST /admin/kyc/:id/review` | — (sem tela) | 🆕 fila de análise de KYC com URL assinada por documento, "assumir caso" (dois analistas não pegam o mesmo), aprovar/recusar com motivo. Sem tela equivalente no protótipo ainda — candidato a `/admin/kyc`, ao lado dos outros atalhos de `/admin` |
-| `POST /ratings/:id/moderation` | — (sem tela) | 🆕 ver linha em Ordens acima — esconder/reexibir avaliação, só ADMIN |
-| — | `/admin/disputes` (mediação) | ⚠️ **papel errado** — mediação no backend é `GET/POST /disputes/*`, exige `MEDIATOR`, não `ADMIN` (ver §1). A tela precisa sair de dentro de `/admin/*` ou passar a checar um papel diferente — decisão de produto, não só de endpoint |
-| — | `/reports`, `/admin/reports` | ❌ **ledger continua sem rota HTTP** — único bloqueio real que restou neste levantamento. Bucket [[20 - Relatórios e Ganhos]] inteiro continua mockado; nem GMV nem ganhos do caixeiro têm de onde vir ainda. Motor, persistência e estorno do ledger já existem e são testados — só falta o controller |
+| `GET /admin/users?status=PENDING_KYC`, `POST /admin/users/:id/approve` | `/admin/users` | ✅ **ligado em 2026-08-16** — `reason` opcional (backend registra default se omitido). Documento não vem nesta listagem (só `documentType`), sem como mascarar um número que a API não devolve |
+| `GET /admin/orders` | `/admin/orders` | ✅ **ligado em 2026-08-16** — sem congelar/liberar: `FROZEN_FOR_AUDIT` não existe no backend (ver linha abaixo), ação removida da tela |
+| `GET /admin/audit-logs` | `/admin/audit-logs` | ✅ **ligado em 2026-08-16** — filtros reais (`action`/`entityType`/`entityId`/`actorId`/`from`/`to`); sem categoria on-chain/admin, o backend não separa por categoria |
+| `GET /admin/blacklist`, `POST /admin/blacklist` | `/admin/blacklist` | ✅ **ligado em 2026-08-16** — 5 tipos de alvo reais via `Select`, motivo obrigatório (10-1000 caracteres), sem campo de "evidências" separado |
+| `GET /admin/kyc`, `GET /admin/kyc/:id`, `POST /admin/kyc/:id/claim`, `POST /admin/kyc/:id/review` | `/admin/kyc`, `/admin/kyc/[id]` (novo) | ✅ **ligado em 2026-08-16** — fila, assumir caso, aprovar/recusar com URL assinada por documento |
+| `POST /ratings/:id/moderation` | `/admin/ratings` (novo) | ✅ **ligado em 2026-08-16** — sem `GET /admin/ratings` no backend (nenhuma listagem administrativa existe); tela busca por `userId` via `GET /users/:id/ratings` (só as visíveis) pra esconder, e tem formulário manual por ID pra reexibir uma já escondida |
+| — | `/admin/disputes` (mediação) | ✅ **resolvido** — saiu de dentro de `/admin/*`, virou `/disputes` (`MEDIATOR`), ver [[14 - Ofertas e Ordens]] |
+| — | `/reports`, `/admin/reports` | ❌ **ledger continua sem rota HTTP** — único bloqueio real que restou neste levantamento, reconferido em 2026-08-16. Bucket [[20 - Relatórios e Ganhos]] inteiro continua mockado; nem GMV nem ganhos do caixeiro têm de onde vir ainda. Motor, persistência e estorno do ledger já existem e são testados — só falta o controller |
 
-## 4. O que ainda falta ser decidido/construído no backend
+Todo o bloco acima (`admin`, `blacklist`, `kyc`) só existe no `main` do backend desde a atualização de 2026-08-16 do clone local de referência — o checkout local estava 10 commits atrás do `origin/main` e não tinha nenhum desses módulos. Front implementado direto contra o código-fonte atualizado, não contra suposição; **nenhum dos 6 endpoints acima está disponível na VM de teste ainda** (`api.163-176-220-125.sslip.io`), ver §-1 e o Backlog do [[Kanban]].
 
-Não é trabalho do front, mas bloqueia integração — registrar aqui pra rastrear. Lista bem menor que a da auditoria de 08/10 (a maioria foi resolvida):
+## 4. O que ainda falta do backend — lista consolidada (reauditada em 2026-08-16)
 
-- Rota HTTP pro ledger (mesmo que só leitura) — sem isso, [[20 - Relatórios e Ganhos]] não sai do mock. Único bloqueio "grande" que restou.
-- Endpoint de saque de caução (`pendingWithdrawal`).
-- `POST /cashier/apply` (hoje só SQL manual — papel de cashier e limite entram por seed).
-- Disponibilidade do caixeiro (`cashier_availability`).
-- OTP duplo de e-mail/telefone (`/verify-email`, `/verify-phone`) — não está nem no roadmap do backend; a decidir se continua fazendo sentido com MFA por TOTP já existindo.
-- Decisão sobre `FROZEN_FOR_AUDIT` — existe só no front, precisa virar decisão de produto antes de virar trabalho de backend.
-- Rate limiting nos endpoints de autenticação (pendência que o próprio backend já lista como conhecida).
+Não é trabalho do front, mas bloqueia integração ou uso — registrar aqui pra rastrear e pra ter um único lugar pra levar ao time de backend. Três categorias: infraestrutura (ambiente já existe, só está com config/versão errada), endpoints que não existem no código nenhum, e decisões de produto que precisam ser tomadas antes de virarem trabalho de backend.
+
+### 4.1 Infraestrutura — resolve sem escrever endpoint novo
+
+Todos os 4 itens abaixo são sobre o **ambiente de teste**, não sobre o código do backend (que já está mais adiantado que o ambiente onde roda) — pedir pro time de backend/infra, não pro time que escreve os módulos.
+
+- **Redeploy da VM de teste** (`https://api.163-176-220-125.sslip.io`) — está desatualizada em relação ao `main` do `marinsprosper-api`. Confirmado 2x contra o Swagger ao vivo da própria VM (`/docs-json`, 2026-08-15 e 2026-08-16): **não existem no servidor rodando** `ratings`, `disputes`, `admin/*` (incluindo `admin/kyc`), `kyc/*`, `uploads`, nem as rotas de enrollment de MFA (`/auth/mfa/setup`/`activate`) — todas já implementadas no front contra o código-fonte, nenhuma testável até o redeploy. É o maior bloqueio aberto hoje: sem ele, seis buckets inteiros (KYC & MFA, Admin, parte de Ordens & Ofertas) não têm como ser validados ponta a ponta.
+- **`CORS_ORIGINS` sem `http://localhost:3000`** — desde 2026-08-16 o backend responde `Access-Control-Allow-Origin` só pro domínio da Vercel, não mais pro localhost (parece ter sido substituição, não adição, na lista). Sem isso, ninguém consegue testar contra a API real rodando `next dev` localmente. Pedir pra acrescentar `http://localhost:3000` **ao lado** do domínio de produção, não no lugar dele.
+- **`NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_WS_URL` nas Environment Variables da Vercel** — provavelmente ausentes no painel de produção (`.env.local` é gitignored, nunca é enviado no deploy); sem elas, login/registro em produção falham com "não foi possível contatar o servidor". Ação é no painel da Vercel (Settings → Environment Variables + redeploy), não no código — mas depende de alguém com acesso admin/owner da organização.
+- **`CORS_ORIGINS` de produção sem `https://marinsprosper-web.vercel.app`** — mesmo achado de 2026-08-15, checar se já foi resolvido junto do item de `localhost` acima (os dois mexem na mesma env var do backend).
+
+### 4.2 Endpoints que não existem em nenhum lugar do código
+
+Reconferido em 2026-08-16 direto no código-fonte do `marinsprosper-api` atualizado (não é suposição nem doc desatualizada) — nenhum dos itens abaixo tem controller, rota ou sequer módulo:
+
+- **Rota HTTP pro ledger** (mesmo que só leitura) — sem isso, [[20 - Relatórios e Ganhos]] inteiro não sai do mock (nem GMV, nem ganhos do caixeiro, nem `/reports`, nem `/admin/reports`). Motor, persistência e estorno do ledger já existem e são testados no backend — só falta o controller. Único bloqueio "grande" que restou depois de todas as outras integrações.
+- **Saque de caução** (`pendingWithdrawal`) — nenhuma rota `cashier/*` de saque; front já tem o fluxo inteiro especificado em mock, pronto pra ligar assim que existir.
+- **Disponibilidade do caixeiro** (`/wallet/availability`, `cashier_availability`) — nunca saiu do papel.
+- **`POST /cashier/apply`** — virar caixeiro hoje é só SQL manual; front mostra "solicitação enviada" mas não tem o que chamar.
+- **`/verify-email`, `/verify-phone`** — OTP duplo de e-mail/telefone, não está nem no roadmap do backend.
+
+### 4.3 Decisões de produto pendentes (viram trabalho de backend só depois de decididas)
+
+- **`FROZEN_FOR_AUDIT`** — existe só no front (mock); não decidido se entra no backend como estado de exceção da ordem, e com que semântica (quem pode congelar, o que acontece com prazos em andamento). Sem isso não faz sentido pedir o endpoint.
+- **Papel `MEDIATOR` vs `ADMIN` em telas administrativas** — já resolvido no código (mediação saiu de `/admin/*`, virou `/disputes` com papel próprio), mas vale confirmar que não sobrou nenhuma tela nova assumindo que `ADMIN` cobre mediação.
+- **Provedor de KYC definitivo** (idwall, Unico, Serpro, CAF) — define se o fluxo de revisão humana atual continua ou se é substituído por decisão automática de provedor; muda o contrato de `POST /kyc/documents` e `/admin/kyc/:id/review`.
+- **Provedor de Auth** (Auth0, Cognito, Supabase Auth ou JWT próprio, que é o que já está implementado) — se mudar, todo `src/lib/auth/` do front precisa ser revisto.
+- **Rate limiting nos endpoints de autenticação** — pendência que o próprio backend já lista como conhecida (`docs/README.md` do backend).
+- **Autorização do GitHub App do Vercel na organização** — bloqueia deploy automático (Sprint 5); precisa de alguém com acesso admin/owner logado, não é decisão técnica.
+- **Auditoria externa do smart contract Tron** — bloqueia telas de depósito de caução em mainnet.
+- **Jurisdição/enquadramento regulatório** — bloqueia toda a Fase 3 (dinheiro real).
 
 ## 5. Mudanças de modelagem que a integração real força no front
 

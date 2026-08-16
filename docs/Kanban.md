@@ -6,6 +6,8 @@ kanban-plugin: board
 
 ## Backlog — decisões e bloqueios (fora do controle direto do front)
 
+Lista consolidada e categorizada (infraestrutura vs. endpoint faltando vs. decisão de produto), reauditada em 2026-08-16 direto no código do backend: [[21 - Integração com API Real]] §4.
+
 - [ ] Auditoria externa do smart contract Tron concluída — bloqueia liberar telas de depósito de caução em mainnet #bloqueio #jose
 - [ ] Definição de jurisdição/enquadramento regulatório — bloqueia Fase 3 (dinheiro real) #bloqueio #julia
 - [ ] Provedor de KYC contratado (idwall, Unico, Serpro, CAF) — define qual SDK/widget o front vai integrar #decisão #jose
