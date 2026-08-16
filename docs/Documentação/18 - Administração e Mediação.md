@@ -83,3 +83,41 @@ Só a indicação visual — sem fluxo de MFA de verdade (isso é Sprint 4, aute
 6. `/admin/disputes` como Ana Ferreira — lista vazia ("Nenhuma disputa atribuída a você"); trocando pra Beto Lima, `order-5` aparece
 7. `/admin/disputes/order-5` — "Assumir revisão" muda o status pra "Disputa em análise"; nota interna enviada aparece no chat restrito; decisão bloqueada com nomes iguais em "recomendado por"/"aprovado por", liberada com nomes diferentes; ao registrar, status vira "Disputa resolvida", decisão fica visível permanentemente na tela, e o evento aparece em `/admin/audit-logs`
 8. `/admin/disputes/order-5` acessado direto pela URL como Ana (não atribuída) — bloqueado com "Este caso não está atribuído a você"
+
+## `/admin` — API real (Sprint 4)
+
+`/admin/disputes` já tinha saído (papel errado — mediação é `MEDIATOR`, não `ADMIN`, ver [[14 - Ofertas e Ordens]]). Esta rodada troca os 4 cards restantes (usuários, ordens, audit-logs, blacklist) pela API real e acrescenta a fila de KYC, que nunca teve tela no protótipo.
+
+Código: `src/lib/admin/` (usuários, ordens, audit-logs, blacklist) e `src/lib/kyc/admin-api.ts` + `admin-types.ts` (fila de KYC — módulo próprio no backend, `src/modules/kyc/kyc.controller.ts` → `AdminKycController`, mas atrás do mesmo `AdminGuard` do resto do painel). Contrato conferido direto no código-fonte do `marinsprosper-api` (`src/modules/admin/`, `src/modules/blacklist/`, `docs/ADMINISTRACAO.md`), não por suposição — ver "Achado" abaixo.
+
+### `/admin/users` — fila de aprovação real
+
+`GET /admin/users?status=PENDING_KYC` + `POST /admin/users/:id/approve`. Motivo passou de obrigatório-de-fato (só existia no protótipo) pra opcional-mas-registrado: o backend grava `reason ?? "aprovação manual da administração"` no histórico de status, que é append-only. Documento **não vem** nesta listagem — `admin.service.ts` só devolve `documentType` (CPF/CNPJ), nunca o número — então `MaskedValue` ficou sem campo real pra mascarar aqui e saiu da tela; o componente continua disponível pra quando dados sensíveis de verdade aparecerem em outra tela administrativa.
+
+### `/admin/orders` — sem congelar/liberar
+
+`GET /admin/orders`, sem recorte de participante (mesmo princípio do protótipo). `FROZEN_FOR_AUDIT` — a ação "Congelar"/"Liberar" documentada acima — **não existe no backend nem está planejado**; decisão de produto ainda pendente (ver Kanban, seção Bloqueado). A ação não foi portada pra API real porque não há endpoint nenhum que a implemente; a tela virou leitura pura.
+
+### `/admin/audit-logs` — filtros reais, sem categoria
+
+`GET /admin/audit-logs` com os filtros que o backend de fato aceita: `action`, `entityType`, `entityId`, `actorId`, `from`/`to`. As abas "Todos/On-chain/Administrativo" do protótipo saíram — o backend não separa por categoria, só por `action`/`entityType` livres (é quem escreve o evento que decide o texto de `action`, ex. `"order.accepted"`, `"user.approved"`). Sem eventos carregados por padrão: a tela pede pra ajustar os filtros e consultar, porque `take` tem teto de 100 e trazer tudo sem filtro na abertura seria a mesma "despejo de banco" que o backend documenta evitar em `admin.service.ts`.
+
+### `/admin/blacklist` — 5 tipos de alvo, sem "evidências"
+
+`GET`/`POST /admin/blacklist`. Os 5 tipos reais (`DOCUMENT`/`EMAIL`/`TRON_ADDRESS`/`PIX_KEY`/`USER`) substituem o campo de texto livre "usuário, conta ou dispositivo" do protótipo — agora é um `Select` porque o backend precisa saber o que está bloqueando pra normalizar certo (documento sem pontuação, e-mail em caixa baixa; endereço TRON fica como veio, o checksum depende da caixa). Motivo (10-1000 caracteres) continua obrigatório; o campo "evidências" separado saiu — o backend só grava `reason`. `action` sempre `BLOCK` nesta tela (desbloqueio existe na API mas não tem UI ainda, fora do escopo desta rodada).
+
+### `/admin/kyc` + `/admin/kyc/[id]` — fila nova
+
+Sem tela equivalente no protótipo. Fila (`GET /admin/kyc`, sem filtro traz `SUBMITTED`+`IN_REVIEW`, mais antigo primeiro) e detalhe (`GET /admin/kyc/:id`, com URL assinada de leitura — curta, gerada na hora — de cada documento). "Assumir caso" é `POST /admin/kyc/:id/claim`, UPDATE condicional em `SUBMITTED` (409 se outro analista já assumiu, mesmo princípio do aceite de ordem). Decisão é `POST /admin/kyc/:id/review`: aprovar move a conta de `PENDING_KYC` pra `ACTIVE`; recusar exige motivo (a tela bloqueia o botão sem ele) e não fecha a porta — o usuário abre um caso novo com outros documentos, o caso recusado permanece com o motivo.
+
+### Achado de segurança — RBAC, agora aplicado do lado do backend
+
+O card "Achado de segurança registrado, não corrigido nesta passada" (acima) apontava que nenhuma tela administrativa tinha controle de acesso por papel. Do lado do backend isso mudou nesta rodada: toda rota `/admin/*` (incluindo `/admin/kyc`) está atrás de `AdminGuard`, que devolve 403 pra quem não tem `ADMIN` no JWT. O front continua **sem** gate próprio — mesma simplificação documentada no resto do app (`/disputes` idem) — mas agora o conteúdo real é sempre o que o backend autoriza, não mais "qualquer conta vê PII de terceiros". Concessão do papel `ADMIN` continua manual (SQL direto, sem rota) e só vale no próximo login, porque o papel vem do JWT assinado.
+
+### Achado: repositório local do backend estava 10 commits atrás
+
+O `marinsprosper-api` clonado localmente (`C:\Users\joser\OneDrive\Desktop\marinsprosper-api`) não tinha nenhum dos módulos `admin`, `blacklist`, `kyc`, `disputes` ou `ratings` — só apareceram depois de um `git pull` (`0e59da8..4006aec`, 125 arquivos). O levantamento de contrato desta rodada (DTOs, guards, shape de resposta) foi feito contra o código atualizado, não contra suposição nem contra a documentação antiga do `main`. Isso é independente do bloqueio da **VM de teste** (`api.163-176-220-125.sslip.io`), que continua desatualizada e sem `admin/*`/`kyc/*` — ver Backlog no [[Kanban]].
+
+### Não testável contra o ambiente de teste
+
+Mesmo bloqueio de infraestrutura do resto do Sprint 4: a VM de teste não tem `admin/*` nem `kyc/*` no Swagger ao vivo. Implementado certo contra o código-fonte real do backend, mas sem como confirmar ponta a ponta até o redeploy — ver item de bloqueio no [[Kanban]].

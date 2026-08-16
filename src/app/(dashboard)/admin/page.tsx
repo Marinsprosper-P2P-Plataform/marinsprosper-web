@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ComponentType } from "react";
 import {
@@ -7,50 +8,82 @@ import {
   ArrowRightIcon,
   BarChart3Icon,
   FileTextIcon,
+  IdCardIcon,
   ListOrderedIcon,
   ShieldBanIcon,
   UsersIcon,
 } from "lucide-react";
-import { useMockAdminUsers } from "@/lib/mock/admin-users";
-import { useMockOrders } from "@/lib/mock/orders";
-import { ORDER_STATUS_META, type OrderStatusCategory } from "@/types/order";
+import { listAdminOrdersRequest, listAdminUsersRequest } from "@/lib/admin/api";
+import { listKycQueueRequest } from "@/lib/kyc/admin-api";
+import { ApiError, ApiNetworkError } from "@/lib/api";
 
-/** GET /admin — home do painel administrativo, protótipo com dados
- * fake. Resumo numérico + atalhos pras outras telas do bucket
- * Administração & Mediação. Sem gate de role ainda — qualquer conta
- * pode navegar até aqui no protótipo (Sprint -1), mesma simplificação
- * já documentada pro resto do app; RBAC de verdade é backend. */
+/**
+ * `GET /admin` — protótipo sem endpoint próprio de resumo; monta os
+ * contadores a partir das listagens reais (`/admin/users`,
+ * `/admin/orders`, `/admin/kyc`), cada uma com teto de 100 no
+ * backend — "contadores" aqui são "quantas apareceram na página",
+ * não o total exato enquanto o volume crescer além disso. Sem gate de
+ * role no front ainda (mesma simplificação documentada pro resto do
+ * app); o backend responde 403 pra quem não é `ADMIN` em cada rota.
+ */
 export default function AdminPage() {
-  const { users } = useMockAdminUsers();
-  const { orders } = useMockOrders();
+  const [counts, setCounts] = useState<{
+    pendingUsers: number;
+    kycQueue: number;
+    openOrders: number;
+    disputedOrders: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const pendingUsers = users.filter((user) => user.status === "pendente").length;
-  const ordersByCategory = orders.reduce(
-    (acc, order) => {
-      const category = ORDER_STATUS_META[order.status].category;
-      acc[category] = (acc[category] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<OrderStatusCategory, number>,
-  );
-  const disputesOpen = ordersByCategory.dispute ?? 0;
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [pendingUsers, kycQueue, openOrders, disputedOrders] = await Promise.all([
+          listAdminUsersRequest({ status: "PENDING_KYC", take: 100 }),
+          listKycQueueRequest({ take: 100 }),
+          listAdminOrdersRequest({ status: "OPEN", take: 100 }),
+          listAdminOrdersRequest({ status: "DISPUTED", take: 100 }),
+        ]);
+        if (cancelled) return;
+        setCounts({
+          pendingUsers: pendingUsers.data.length,
+          kycQueue: kycQueue.data.length,
+          openOrders: openOrders.data.length,
+          disputedOrders: disputedOrders.data.length,
+        });
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiNetworkError) setError(err.message);
+        else if (err instanceof ApiError && err.status === 403) {
+          setError("Acesso restrito à administração — sua conta não tem o papel ADMIN.");
+        } else if (err instanceof ApiError) setError(`Backend recusou a consulta: ${err.message}`);
+        else setError("Não foi possível carregar os contadores.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const cards = [
-    { label: "Usuários cadastrados", value: users.length },
-    { label: "Cadastros pendentes", value: pendingUsers },
-    { label: "Ordens abertas", value: ordersByCategory.open ?? 0 },
-    { label: "Ordens em andamento", value: ordersByCategory.progress ?? 0 },
-    { label: "Ordens concluídas", value: ordersByCategory.completed ?? 0 },
-    { label: "Ordens em disputa", value: disputesOpen },
+    { label: "Cadastros pendentes", value: counts?.pendingUsers },
+    { label: "Casos de KYC na fila", value: counts?.kycQueue },
+    { label: "Ordens abertas", value: counts?.openOrders },
+    { label: "Ordens em disputa", value: counts?.disputedOrders },
   ];
 
   const links: { href: string; label: string; description: string; icon: ComponentType<{ className?: string }> }[] = [
     { href: "/admin/users", label: "Usuários", description: "Listar e aprovar cadastros", icon: UsersIcon },
+    { href: "/admin/kyc", label: "Fila de KYC", description: "Análise de documentos submetidos", icon: IdCardIcon },
     { href: "/admin/orders", label: "Ordens", description: "Visão consolidada de todas as ordens", icon: ListOrderedIcon },
     { href: "/admin/audit-logs", label: "Logs de auditoria", description: "Consulta somente leitura", icon: FileTextIcon },
-    { href: "/admin/blacklist", label: "Blacklist", description: "Gestão de contas bloqueadas", icon: ShieldBanIcon },
-    { href: "/disputes", label: "Disputas", description: "Fila de mediação (saiu do admin — papel é MEDIATOR)", icon: AlertTriangleIcon },
-    { href: "/admin/reports", label: "Relatórios", description: "GMV, receita, lucro líquido e liquidez", icon: BarChart3Icon },
+    { href: "/admin/blacklist", label: "Blacklist", description: "Gestão de bloqueios", icon: ShieldBanIcon },
+    { href: "/disputes", label: "Disputas", description: "Fila de mediação (papel MEDIATOR, não ADMIN)", icon: AlertTriangleIcon },
+    { href: "/admin/reports", label: "Relatórios", description: "GMV, receita e liquidez (ledger sem rota HTTP, ainda mockado)", icon: BarChart3Icon },
   ];
 
   return (
@@ -60,10 +93,12 @@ export default function AdminPage() {
         <p className="text-muted-foreground text-sm">Resumo da operação e atalhos pras telas de gestão</p>
       </div>
 
+      {error && <p className="text-destructive text-sm">{error}</p>}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map((card) => (
           <div key={card.label} className="border-border rounded-lg border p-4">
-            <p className="text-2xl font-semibold">{card.value}</p>
+            <p className="text-2xl font-semibold">{card.value ?? "…"}</p>
             <p className="text-muted-foreground text-xs">{card.label}</p>
           </div>
         ))}
